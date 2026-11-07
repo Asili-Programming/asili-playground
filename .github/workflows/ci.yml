@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The highlighter's word lists are generated from Asili's compiler, which changes on its own
+  # schedule: check weekly against Asili's develop so drift shows up without a push here.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  word-lists:
+    name: Highlighter word lists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out Asili
+        uses: actions/checkout@v4
+        with:
+          repository: Asili-Programming/Asili
+          ref: develop
+          path: .asili
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .asili
+
+      - name: Word lists match the compiler's
+        working-directory: .asili
+        env:
+          ASILI_PLAYGROUND_DIR: ${{ github.workspace }}
+        run: cargo test -p pata-core --test editor_word_lists

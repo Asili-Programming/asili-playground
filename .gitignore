@@ -1,0 +1,5 @@
+# wasm-pack build output (./build.sh)
+pkg/
+# pata jenga output
+kilele/
+target/

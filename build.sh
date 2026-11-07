@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# Builds the asili-wasm (wasm-browser) package used by examples/playground/main.js.
-# Run from anywhere; writes output into examples/playground/pkg (gitignored).
+# Builds the asili-wasm (wasm-browser) package used by main.js, from an Asili checkout named by
+# ASILI_DIR (default: ../Asili, a sibling clone of https://github.com/Asili-Programming/Asili).
+# Run from anywhere; writes output into pkg/ (gitignored).
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd "$script_dir/../.." && pwd)"
+repo_root="${ASILI_DIR:-$script_dir/../Asili}"
+[ -f "$repo_root/driver/wasm/Cargo.toml" ] || {
+  echo "Nakala ya Asili haipatikani katika $repo_root. Ipakue kwa:" >&2
+  echo "  git clone https://github.com/Asili-Programming/Asili \"$repo_root\"" >&2
+  echo "au weka ASILI_DIR." >&2
+  exit 1
+}
 
 command -v wasm-pack >/dev/null 2>&1 || {
   echo "wasm-pack haipatikani. Sakinisha kwa: cargo install wasm-pack" >&2
