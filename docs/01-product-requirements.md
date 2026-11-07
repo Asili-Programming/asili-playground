@@ -18,7 +18,7 @@ of the Pata tools besides the compiler and runner are available.
 Goals:
 
 1. **Run anything a learner writes**, one file or several modules, with errors marked on the line.
-2. **Show the toolchain**: format (`nadhifu`), lint (`pata-lint`), check without running, run tests
+2. **Show the toolchain**: format (`nadhifu`), lint (`pata kagua`), check without running, run tests
    (`#[jaribio]`), and trace a run (`--fuatilia`), each from a button.
 3. **Show every feature**: a sample for each language area and each standard library module that
    works in a browser, with the modules that cannot work in a browser named plainly.
@@ -45,7 +45,7 @@ Which Pata tools the playground surfaces. "In browser" means compiled to wasm an
 | Multi-file projects | File tabs; `runBundle(entry, modules)` | v1 | API exists, UI does not |
 | Check without running (semantic analysis) | Diagnostics as you type, marked in the editor | v1 | Needs a `check` export with structured diagnostics |
 | `pata nadhifu` | Format button and format on Run (optional) | v1 | `pata-fmt` library compiled to wasm; feasibility to verify |
-| `pata-lint` | Lint button; findings in the editor | v1 | `pata-lint` library compiled to wasm; feasibility to verify |
+| `pata kagua` | Lint button; findings in the editor | v1 | The `pata-lint` library `pata kagua` runs, compiled to wasm; feasibility to verify |
 | `pata jaribu` | Test button runs every `#[jaribio]` function | v1 | Needs a `test` export |
 | `--fuatilia` | Trace tab showing the run as a tree | v2 | Trace events from the wasm build |
 | Mwalimu (hover, completion) | Hover types and completion in the editor | v2 | LSP logic in a worker; large |

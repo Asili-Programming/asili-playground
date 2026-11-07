@@ -47,7 +47,7 @@ a short pause after the last keystroke.
 ## Flow 2: try the toolchain
 
 1. **Nadhifisha** reformats the active file with `nadhifu` rules; undo restores the old text.
-2. **Kagua** runs `pata-lint`; findings appear as yellow underlines and in Matatizo with their rule
+2. **Kagua** runs the `pata kagua` rules; findings appear as yellow underlines and in Matatizo with their rule
    code.
 3. **Jaribu** runs every `#[jaribio]`; Majaribio lists pass and fail with output per test.
 4. v2: **Ufuatiliaji** shows the last run's trace as a tree.

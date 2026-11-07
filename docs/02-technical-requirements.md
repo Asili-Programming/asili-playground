@@ -48,9 +48,11 @@ Every export reuses the crate the CLI uses, so the playground cannot disagree wi
 write-once rule). Runtime errors also need a line: `run` should return structured errors, not only a
 string.
 
-Feasibility to confirm first: `pata-fmt` and `pata-lint` depend on `pata-config`, `clap`, `toml` and
-`serde`; their library APIs must build for `wasm32-unknown-unknown` without file access. If they do
-not, split the pure library from the CLI part behind a feature flag.
+Feasibility to confirm first: since Asili `4bfe016`, `pata-fmt` and `pata-lint` are libraries only
+(`pata nadhifu` and `pata kagua` call them) and no longer depend on `clap`; they still depend on
+`pata-config`, `toml` and `serde`. Their string-in, string-out APIs must build for
+`wasm32-unknown-unknown` without touching the file system. If `pata-config`'s file lookup gets in
+the way, put it behind a feature flag.
 
 ## Editor
 
