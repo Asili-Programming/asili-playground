@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   # The highlighter's word lists are generated from Asili's compiler, which changes on its own
   # schedule: check weekly against Asili's develop so drift shows up without a push here.
