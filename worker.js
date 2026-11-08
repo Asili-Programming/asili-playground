@@ -14,7 +14,13 @@ globalThis.asili_nguvu_load = (bytes, count, memory, table) => {
 // (core/evaluator/src/platform.rs, wasm-browser shim). Send it to the page instead.
 const send = (m) => postMessage(m);
 const format = (args) => args.map(String).join(" ");
-console.log = (...args) => send({ type: "out", text: format(args), err: false });
+// Virtual-board events come on the same console channel, tagged (see platform.rs, EVENT_TAG).
+const EVENT_TAG = "\u0001ASILI-EVT ";
+console.log = (...args) => {
+  const text = format(args);
+  if (text.startsWith(EVENT_TAG)) return send({ type: "tukio", json: text.slice(EVENT_TAG.length) });
+  send({ type: "out", text, err: false });
+};
 console.error = (...args) => send({ type: "out", text: format(args), err: true });
 
 // The engine's bytes. A normal web server sends the binary file (pkg/asili_wasm_bg.wasm). Asili's
@@ -38,25 +44,26 @@ async function loadEngine() {
   const bytes = await engineBytes();
   const glue = await import("./pkg/asili_wasm.js");
   await glue.default({ module_or_path: bytes });
-  return glue.run;
+  return glue;
 }
 
 const engine = loadEngine().then(
-  (run) => { send({ type: "ready" }); return run; },
+  (glue) => { send({ type: "ready" }); return glue; },
   (e) => { send({ type: "loadfail", message: String(e && e.message ? e.message : e) }); throw e; },
 );
 engine.catch(() => {});
 
 self.addEventListener("message", async (e) => {
   if (e.data.type !== "run") return;
-  let run;
+  let glue;
   try {
-    run = await engine;
+    glue = await engine;
   } catch {
     return;
   }
   try {
-    run(e.data.source);
+    // Every run is on the virtual board; a sample with no `# in:` lines just has no pin levels.
+    glue.runBoard(e.data.source, Float64Array.from(e.data.board || []));
     send({ type: "done" });
   } catch (err) {
     send({ type: "error", message: String(err && err.message ? err.message : err) });

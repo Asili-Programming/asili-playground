@@ -26,6 +26,8 @@ const STRINGS = {
     retry: "Jaribu tena", unsupported: "Kivinjari hiki hakiwezi kuendesha Asili (inahitaji WebAssembly na Web Workers).",
     footer: "Inaendesha Asili kwenye kivinjari chako. Msimbo wako hautumwi kwa seva yoyote.",
     switchLabel: "English", switchTo: "en",
+    board: "Bodi pepe", clock: "Saa (ms)", pin: "Pini", events: "Matukio",
+    noEvents: "Hakuna tukio bado",
   },
   en: {
     title: "Asili — Playground",
@@ -36,6 +38,8 @@ const STRINGS = {
     retry: "Try again", unsupported: "This browser cannot run Asili (it needs WebAssembly and Web Workers).",
     footer: "Asili runs in your browser. Your code is never sent to any server.",
     switchLabel: "Kiswahili", switchTo: "sw",
+    board: "Virtual board", clock: "Clock (ms)", pin: "Pin", events: "Events",
+    noEvents: "No events yet",
   },
 };
 const T = STRINGS[lang];
@@ -149,6 +153,53 @@ function setStatus(text, kind) {
   statusEl.className = "status" + (kind ? ` ${kind}` : "");
 }
 
+// ---- Virtual board (ubao) ---------------------------------------------------------------------
+// The engine reports each pin write, pin read and clock step as an event (platform.rs,
+// ubao.rs). The panel shows the pins as the events leave them, the clock, and the event list.
+const BOARD_PINS = 8;
+const boardPins = document.getElementById("board-pins");
+const boardClock = document.getElementById("board-clock");
+const boardEvents = document.getElementById("board-events");
+
+function resetBoard() {
+  boardPins.replaceChildren();
+  for (let n = 0; n < BOARD_PINS; n++) {
+    const li = document.createElement("li");
+    li.dataset.pin = String(n);
+    li.dataset.high = "false";
+    li.textContent = `${T.pin} ${n}`;
+    boardPins.appendChild(li);
+  }
+  boardClock.textContent = "0";
+  boardEvents.replaceChildren();
+  const empty = document.createElement("li");
+  empty.className = "board-empty";
+  empty.textContent = T.noEvents;
+  boardEvents.appendChild(empty);
+}
+
+function handleEvent(json) {
+  let ev;
+  try {
+    ev = JSON.parse(json);
+  } catch {
+    return;
+  }
+  if (boardEvents.querySelector(".board-empty")) boardEvents.replaceChildren();
+  boardClock.textContent = String(ev.saa);
+  if ((ev.aina === "andika" || ev.aina === "soma") && ev.pini >= 0 && ev.pini < BOARD_PINS) {
+    const li = boardPins.children[ev.pini];
+    if (li && ev.aina === "andika") li.dataset.high = String(ev.hali);
+  }
+  const item = document.createElement("li");
+  const when = `${ev.saa} ms`;
+  item.textContent = ev.aina === "subiri"
+    ? `${ev.hatua}: subiri → ${when}`
+    : `${ev.hatua}: ${ev.aina} ${T.pin.toLowerCase()} ${ev.pini} = ${ev.hali ? "1" : "0"} (${when})`;
+  boardEvents.appendChild(item);
+  boardEvents.parentElement.scrollTop = boardEvents.parentElement.scrollHeight;
+}
+
 function appendOutput(text, isErr) {
   const span = document.createElement("span");
   if (isErr) span.className = "line-err";
@@ -187,6 +238,8 @@ function onWorkerMessage(e) {
     setStatus(T.ready, "ok");
   } else if (m.type === "out") {
     appendOutput(m.text, m.err);
+  } else if (m.type === "tukio") {
+    handleEvent(m.json);
   } else if (m.type === "done") {
     finishRun(T.done, "ok");
   } else if (m.type === "error") {
@@ -223,11 +276,17 @@ function run() {
   if (!engineReady || busy) return;
   busy = true;
   outputEl.textContent = "";
+  resetBoard();
   runBtn.hidden = true;
   stopBtn.hidden = false;
   stopBtn.disabled = false;
   setStatus(T.running);
-  worker.postMessage({ type: "run", source: editor.state.doc.toString() });
+  // The sample's scripted pin levels (manifest `inputs`), flattened to saa, pini, hali triples.
+  worker.postMessage({
+    type: "run",
+    source: editor.state.doc.toString(),
+    board: currentInputs.flat(),
+  });
 }
 
 function stop() {
@@ -244,9 +303,12 @@ function stop() {
 
 // ---- Samples --------------------------------------------------------------------------------
 // samples/manifest.json lists {file, label, label_en}; the label follows the interface language.
+let currentInputs = [];
+
 async function loadSamples() {
   const res = await fetch("samples/manifest.json");
   const manifest = await res.json();
+  samplesById = new Map(manifest.map((sample) => [sample.file, sample]));
   for (const sample of manifest) {
     const opt = document.createElement("option");
     opt.value = sample.file;
@@ -258,7 +320,10 @@ async function loadSamples() {
   }
 }
 
+let samplesById = new Map();
+
 async function loadSample(file) {
+  currentInputs = samplesById.get(file)?.inputs ?? [];
   const res = await fetch(`samples/${file}`);
   const text = await res.text();
   editor.setState(state0());
@@ -281,6 +346,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ---- Start ----------------------------------------------------------------------------------
+resetBoard();
 if (typeof WebAssembly === "undefined" || typeof Worker === "undefined") {
   showState("unsupported", T.unsupported);
   setStatus(T.error, "error");

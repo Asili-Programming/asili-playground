@@ -106,7 +106,8 @@ main {
 }
 
 #editor-pane,
-#output-pane {
+#output-pane,
+#board-pane {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -202,3 +203,19 @@ footer a {
 .notice button { margin-left: 8px; }
 button.danger { background: #8a2b2b; color: #fff; border: 0; }
 a.switch { color: inherit; border: 1px solid currentColor; border-radius: 6px; padding: 3px 10px; text-decoration: none; font-size: 0.9rem; }
+
+/* Virtual board (ubao): pins and clock, filled from the run's events. */
+#board-pane { flex: 0 0 280px; display: flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); }
+.board-body { padding: 0.9rem; overflow: auto; font-size: 0.95rem; }
+.board-clock { margin-bottom: 0.7rem; }
+.board-clock output { font-family: ui-monospace, monospace; font-weight: 600; }
+.board-pins { list-style: none; margin: 0 0 0.9rem; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.board-pins li { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; font-family: ui-monospace, monospace; }
+.board-pins li::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #9aa2b5; }
+.board-pins li[data-high="true"]::before { background: #2f9e44; box-shadow: 0 0 6px #2f9e44; }
+.board-events-title { font-weight: 600; margin-bottom: 4px; }
+.board-events { margin: 0; padding-left: 1.4rem; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+.board-events li.board-empty { list-style: none; margin-left: -1.4rem; color: #6b7280; }
+@media (max-width: 760px) {
+  #board-pane { flex: none; border-left: none; border-top: 1px solid var(--border); }
+}

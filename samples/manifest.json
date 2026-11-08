@@ -3,18 +3,39 @@
     "id": "karibu",
     "file": "karibu.as",
     "label": "Karibu (Fibonacci)",
-    "label_en": "Welcome (Fibonacci)"
+    "label_en": "Welcome (Fibonacci)",
+    "inputs": []
   },
   {
     "id": "makosa",
     "file": "makosa.as",
     "label": "Kushughulikia Makosa (Result)",
-    "label_en": "Handling errors (Result)"
+    "label_en": "Handling errors (Result)",
+    "inputs": []
   },
   {
     "id": "sifa",
     "file": "sifa.as",
     "label": "Sifa na Umbo (Traits & Structs)",
-    "label_en": "Traits and structs"
+    "label_en": "Traits and structs",
+    "inputs": []
+  },
+  {
+    "id": "ubao",
+    "file": "ubao.as",
+    "label": "Bodi pepe: pini na saa",
+    "label_en": "Virtual board: pins and clock",
+    "inputs": [
+      [
+        0,
+        3,
+        0
+      ],
+      [
+        5,
+        3,
+        1
+      ]
+    ]
   }
 ]
