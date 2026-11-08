@@ -9,47 +9,9 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1><img class="logo" src="logo-mark.svg" alt="" width="26" height="28" /> Asili <span data-i18n="subtitle">Uwanja wa Kuchezea</span></h1>
-    <div class="header-actions">
-      <select id="sample-picker" data-i18n-title="sampleTitle" title="Chagua mfano"></select>
-      <button id="run-btn" class="primary" data-i18n="run" disabled>▶ Endesha</button>
-      <button id="stop-btn" class="danger" data-i18n="stop" hidden>■ Simamisha</button>
-      <span id="status" class="status" role="status" aria-live="polite"></span>
-      <a id="lugha-switch" class="switch" href="?lugha=en">English</a>
-    </div>
-  </header>
-
-  <main>
-    <section id="editor-pane" aria-label="Msimbo">
-      <div id="notice" class="notice" role="alert" hidden></div>
-      <div id="editor"></div>
-    </section>
-    <section id="output-pane" aria-label="Matokeo">
-      <div class="output-header">
-        <span data-i18n="output">Matokeo</span>
-        <button id="clear-btn" data-i18n="clear" data-i18n-title="clearTitle" title="Futa matokeo">Futa</button>
-      </div>
-      <pre id="output"></pre>
-    </section>
-    <section id="board-pane" aria-label="Bodi pepe">
-      <div class="output-header">
-        <span data-i18n="board">Bodi pepe</span>
-      </div>
-      <div class="board-body">
-        <div class="board-clock"><span data-i18n="clock">Saa (ms)</span> <output id="board-clock">0</output></div>
-        <ol id="board-pins" class="board-pins" aria-label="Pini"></ol>
-        <div class="board-events-title" data-i18n="events">Matukio</div>
-        <ol id="board-events" class="board-events"><li class="board-empty" data-i18n="noEvents">Hakuna tukio bado</li></ol>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <span data-i18n="footer">Inaendesha Asili kwenye kivinjari chako. Msimbo wako hautumwi kwa seva yoyote.</span>
-    <a href="https://github.com/Asili-Programming/Asili" target="_blank" rel="noopener">Asili-Programming/Asili</a>
-  </footer>
-
+  <!-- The whole shell is rendered from the registries in layout.js (see main.js, "The IDE shell"). -->
+  <div class="ide"></div>
+  <noscript>Uwanja wa kuchezea unahitaji JavaScript. / The playground needs JavaScript.</noscript>
   <script type="module" src="main.js"></script>
 </body>
 </html>

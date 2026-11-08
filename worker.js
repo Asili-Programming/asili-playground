@@ -54,6 +54,22 @@ const engine = loadEngine().then(
 engine.catch(() => {});
 
 self.addEventListener("message", async (e) => {
+  if (e.data.type === "check") {
+    // Diagnostics for the editor. An engine built before `check` existed simply reports nothing.
+    let glue;
+    try {
+      glue = await engine;
+    } catch {
+      return;
+    }
+    if (typeof glue.check !== "function") return;
+    try {
+      send({ type: "diag", seq: e.data.seq, json: glue.check(e.data.source) });
+    } catch {
+      // Ignored: the editor keeps its previous marks.
+    }
+    return;
+  }
   if (e.data.type !== "run") return;
   let glue;
   try {

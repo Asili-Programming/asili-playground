@@ -7,15 +7,45 @@ every tool one click away in the tool bar.
 
 ## Layout regions
 
+The page is an IDE shell. Every region has a fixed place, so the editor is never pushed around by a
+panel opening.
+
 ```mermaid
 flowchart TB
-  header["Header: logo · sample gallery · language switch · Share"]
-  toolbar["Tool bar: Endesha · Simamisha · Nadhifisha · Kagua · Jaribu · status"]
-  tabs["File tabs: kuu.as · + new file"]
-  editor["Editor with diagnostics marked on lines"]
-  panel["Bottom panel tabs: Matokeo (output) · Matatizo (problems) · Majaribio (tests) · Ufuatiliaji (trace, v2)"]
-  header --> toolbar --> tabs --> editor --> panel
+  menu["Menu bar: Faili · Hariri · Endesha · Zana · Mwonekano · Msaada"]
+  subgraph body["Workbench"]
+    direction LR
+    primary["Primary sidebar: Faili (samples and open files)"]
+    subgraph center["Main"]
+      tabs["Editor tabs: one per open program, × to close"]
+      editor["Editor with errors marked on their lines"]
+      panel["Bottom panel tabs: Matokeo (output) · Matatizo (problems) · Majaribio (tests, later)"]
+      tabs --> editor --> panel
+    end
+    secondary["Secondary sidebar: Bodi pepe (pins, clock, events)"]
+    primary --- center --- secondary
+  end
+  status["Status bar: engine state · Ln, Col · file · language"]
+  menu --> body --> status
 ```
+
+- **Menu bar** holds every command. A menu item that is not built yet is shown disabled, not hidden.
+- **Primary sidebar** lists the samples and the open files. Choosing a sample opens it in a tab.
+- **Editor tabs** keep one program each. Switching tabs keeps each program's text.
+- **Secondary sidebar** shows the virtual board. Collapsing it gives the editor the width.
+- **Bottom panel** is tabbed. Matatizo lists each diagnostic; choosing one moves the cursor to its line.
+- **Status bar** shows the engine state (Ready, Running, Error), the cursor position, the open file
+  and the interface language.
+
+The layout is data, not markup. `layout.js` holds a registry of **menus**, **sidebar sections**
+(primary and secondary), **bottom-panel tabs** and **status items**. Each entry has an `id`, a label
+key in the string table, an `order` and what it renders or does. `renderShell()` builds the page from
+the registry, so the page HTML only has the root element. To add a feature, register an entry; no
+other file changes. Entries are checked when registered: a duplicate `id` is an error, so two
+features cannot silently replace each other.
+
+Narrow screens (under 760 px) stack the regions in the order of the list above, with each sidebar
+collapsed by default.
 
 ## States
 
