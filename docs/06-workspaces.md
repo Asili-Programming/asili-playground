@@ -2,8 +2,7 @@
 
 As of 8 November 2026 · Victor Kaiuki
 
-A project is a named set of Asili files that the playground keeps, exports and imports. Samples
-stay read-only; a sample can be saved as a project to edit it.
+Samples stay read-only; a sample can be saved as a workspace to edit it.
 
 A workspace is the set of Asili files the playground keeps, shows, exports and imports. The
 interface says "workspace", as VS Code does; there is no separate "project" concept.
