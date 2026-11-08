@@ -405,3 +405,15 @@ body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
 .statusbar .lang-switch { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; color: var(--accent); text-decoration: none; }
 .statusbar .lang-switch:hover { text-decoration: underline; }
 .tab-end-btn.danger { color: #ff8a8a; }
+
+/* ---- Views: any view can move between the regions (docs/03-app-flow.md, Flow 8) ------------ */
+.region-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.view-pane { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.view-pane[hidden] { display: none; }
+.region-tab { cursor: grab; }
+.region-tab:active { cursor: grabbing; }
+.region-tab.drop-target { box-shadow: inset 2px 0 0 var(--accent); }
+.region-strip { display: flex; flex: none; overflow-x: auto; }
+.region-strip.drop-target { background: var(--hover); }
+.sidebar .region-strip { border-bottom: 1px solid var(--border); }
+.sidebar .region-tab { font-size: 0.75rem; text-transform: none; letter-spacing: normal; }
