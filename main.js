@@ -12,6 +12,7 @@ import {
 import {
   addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
   showPanel, showView, setRegionVisible, regionVisible, refreshMenus, menuViews, closeSheets,
+  menuGroups, openActionSheet,
 } from "./layout.js";
 import { registerCommand, runCommand, installKeys, openPalette, openList } from "./commands.js";
 import { saveSession, loadSession } from "./session.js";
@@ -84,7 +85,7 @@ const STRINGS = {
     errNotAsiliFile: "Si faili la Asili", errNotText: "Si maandishi", errFileTooBig: "Faili ni kubwa mno",
     errBadBinary: "Faili hili la binary si sahihi", binaryNote: "Faili la binary: haliwezi kuhaririwa",
     sharedSkipped: "Mafaili ya binary hayakujumuishwa kwenye kiungo", filesAdded: "Mafaili yameongezwa",
-    addFiles: "Ongeza mafaili", minimap: "Ramani ndogo",
+    addFiles: "Ongeza mafaili", minimap: "Ramani ndogo", appName: "Asili",
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
@@ -149,7 +150,7 @@ const STRINGS = {
     errNotAsiliFile: "Not an Asili file", errNotText: "Not text", errFileTooBig: "The file is too large",
     errBadBinary: "This binary file is not valid", binaryNote: "Binary file: it cannot be edited",
     sharedSkipped: "Binary files were left out of the link", filesAdded: "Files added",
-    addFiles: "Add files", minimap: "Minimap",
+    addFiles: "Add files", minimap: "Minimap", appName: "Asili",
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
@@ -487,7 +488,31 @@ addStatusItem({ id: "problems", order: 50, render(slot) {
   slot.addEventListener("click", () => { setRegionVisible("panel", true); showPanel("problems"); });
 } });
 
-renderShell(document.querySelector(".ide"), { t: (key) => T[key] ?? key, embed: isEmbed });
+const tr = (key) => T[key] ?? key;
+renderShell(document.querySelector(".ide"), { t: tr, embed: isEmbed });
+
+// The phone's app bar (style.css): the open file, Run or Stop, and the menus. Each opens a sheet.
+document.getElementById("appbar-run")?.addEventListener("click", () => (busy ? runCommand("run.stop") : run()));
+document.getElementById("appbar-title")?.addEventListener("click", () => openDocSheet());
+document.getElementById("appbar-more")?.addEventListener("click", () => openActionSheet(T.menu, menuGroups(tr)));
+
+// The app bar's title is the open file, and its button is Run or Stop.
+function updateAppbar() {
+  const title = document.getElementById("appbar-title");
+  const run = document.getElementById("appbar-run");
+  if (!title || !run) return;
+  title.textContent = activeDoc ? (activeDoc.file ?? activeDoc.name) : T.appName;
+  run.innerHTML = busy ? STOP_ICON : PLAY_ICON;
+  run.setAttribute("aria-label", busy ? T.stop : T.run);
+  run.disabled = !busy && !canRun();
+}
+
+// The open files as a sheet: tap one to show it. The active file can also be closed from here.
+function openDocSheet() {
+  const items = docs.map((d) => ({ label: d.file ?? d.name, run: () => activate(d) }));
+  if (activeDoc) items.push({ label: T.closeTab, run: () => requestClose(activeDoc) });
+  openActionSheet(T.openFiles, [{ items }]);
+}
 // Every on/off setting is defined once (settings.js, and docs/03-app-flow.md "Toggles"). The editor
 // is created after this; the toggles that need it reach it through `editorRef`.
 initSettings();
@@ -957,6 +982,7 @@ const engine = createMachine("engine", MACHINES.engine, (state) => {
   runBtn.hidden = busy;
   stopBtn.hidden = !busy;
   refreshMenus();
+  updateAppbar();
 });
 const checks = createMachine("check", MACHINES.check);
 // The lint findings: shown, or stale after an edit (they no longer match the text). Its changes redraw
@@ -2017,6 +2043,7 @@ function showRootMenu(x, y, p, li) {
 const derived = {};
 const workspaceMachine = createMachine("workspace", MACHINES.workspace);
 function syncStates() {
+  updateAppbar();
   const p = activeProject();
   const d = deriveStates({
     workspace: p, openFiles: docs, activeFile: activeDoc,

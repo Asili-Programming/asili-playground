@@ -363,6 +363,24 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
   .notifications { left: 0.6rem; right: 0.6rem; bottom: 5.4rem; align-items: stretch; }
   .palette-box { width: 92vw; }
   .dialog-box, .dialog { max-width: 92vw; }
+
+  /* The phone's own layout (the desktop's menu bar, tab row and scrim are not shown): an app bar on top,
+     the editor or one full-screen view in the middle, and the bottom bar to switch between them. */
+  .menubar, .tabbar, .region-strip { display: none !important; }
+  .scrim { display: none !important; }
+  .appbar { display: flex; align-items: center; gap: 0.2rem; height: 3rem; padding: 0 0.4rem;
+    background: var(--panel); border-bottom: 1px solid var(--border); }
+  .appbar-title { flex: 1 1 auto; min-width: 0; min-height: 2.75rem; padding: 0 0.5rem; border: 0; background: transparent;
+    color: var(--text); font: inherit; font-family: ui-monospace, monospace; font-size: 0.95rem; font-weight: 600;
+    text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .appbar-btn { flex: none; width: 2.75rem; height: 2.75rem; display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 1.3rem; }
+  .appbar-btn:disabled { opacity: 0.35; }
+  #appbar-run svg { width: 22px; height: 22px; }
+  .ide.sheet-open .main-body { display: none; }
+  #primary { top: 3rem; left: 0; right: 0; width: auto; }
+  #board-pane { top: 3rem; left: 0; right: 0; width: auto; }
+  #panel { top: 3rem; height: auto; }
 }
 
 /* Hidden by the Mwonekano menu. */
@@ -637,3 +655,16 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 .pi.on { font-family: "Material Product Icons", sans-serif; font-size: 18px; }
 .pi.on > svg { display: none; }
 .file-icon { width: 16px; height: 16px; flex: none; vertical-align: middle; }
+
+/* ---- The sheet (phones): a bottom sheet for the menus and the open files. -------------------- */
+.sheet-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(0, 0, 0, 0.45); }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 91; max-height: 82vh; overflow-y: auto;
+  background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4); padding-bottom: 0.5rem; }
+.sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 8px auto 4px; }
+.sheet-title { font-weight: 700; padding: 0.4rem 1.1rem 0.6rem; }
+.sheet-group { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 0.8rem 1.1rem 0.3rem; }
+.sheet-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; width: 100%; min-height: 3rem;
+  padding: 0.6rem 1.1rem; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 1rem; text-align: left; }
+.sheet-item:disabled { color: var(--muted); opacity: 0.6; }
+.sheet-item[aria-checked="true"]::after { content: "\2713"; color: var(--accent); }
+.sheet-key { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--muted); }
