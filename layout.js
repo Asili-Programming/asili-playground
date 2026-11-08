@@ -107,15 +107,7 @@ export function renderShell(root, { t, embed = false }) {
     const details = el("details", { class: "menu", id: `menu-${menu.id}` });
     details.append(el("summary", { "data-i18n": menu.label }, t(menu.label)));
     const items = el("div", { class: "menu-items" });
-    for (const item of menu.items.filter(keep)) {
-      const button = el("button", { id: item.id, "data-menu-item": item.id }, t(item.label));
-      const run = actionOf(item);
-      button.addEventListener("click", () => {
-        details.open = false;
-        run?.();
-      });
-      items.append(button);
-    }
+    appendMenuItems(items, menu.items.filter(keep), details, t);
     details.append(items);
     menubar.append(details);
   }
@@ -244,6 +236,41 @@ function splitter(region) {
 function applyStoredSizes() {
   const sizes = storedSizes();
   for (const region of Object.keys(VARIABLES)) applySize(region, sizes[region]);
+}
+
+// The items of a menu: buttons (with their key), separators, and submenus (an item whose
+// `submenu` lists items of its own).
+function appendMenuItems(container, entries, details, t) {
+  for (const item of entries) {
+    if (item.separator) {
+      container.append(el("hr", { class: "menu-sep", role: "separator" }));
+      continue;
+    }
+    if (item.submenu) {
+      const sub = el("div", { class: "submenu", id: item.id });
+      const head = el("button", { class: "submenu-head", type: "button", "aria-haspopup": "true", "aria-expanded": "false" }, t(item.label));
+      head.append(el("span", { class: "menu-key", "aria-hidden": "true" }, "›"));
+      const body = el("div", { class: "submenu-items", hidden: true });
+      head.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = body.hidden;
+        body.hidden = !open;
+        head.setAttribute("aria-expanded", String(open));
+      });
+      appendMenuItems(body, item.submenu.filter(keep), details, t);
+      sub.append(head, body);
+      container.append(sub);
+      continue;
+    }
+    const button = el("button", { id: item.id, "data-menu-item": item.id }, t(item.label));
+    if (item.keyHint) button.append(el("span", { class: "menu-key" }, item.keyHint));
+    const run = actionOf(item);
+    button.addEventListener("click", () => {
+      details.open = false;
+      run?.();
+    });
+    container.append(button);
+  }
 }
 
 // Menus: a click outside or Escape closes the open menu; hovering another menu opens it; arrow keys

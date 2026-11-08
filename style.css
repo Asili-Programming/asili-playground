@@ -496,3 +496,12 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 .dialog { width: min(28rem, 92vw); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
 .dialog p { margin: 0 0 1rem; line-height: 1.4; }
 .dialog-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ---- Menus: separators, key hints, submenus (the View menu) --------------------------------- */
+.menu-items .menu-sep { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+.menu-items button { display: flex; justify-content: space-between; gap: 2rem; white-space: nowrap; }
+.menu-key { color: var(--muted); font-size: 0.75rem; font-family: ui-monospace, monospace; }
+.submenu { position: relative; }
+.submenu-head { width: 100%; display: flex; justify-content: space-between; gap: 2rem; text-align: left; border: 0; background: transparent; padding: 0.4rem 0.6rem; color: var(--text); border-radius: 4px; }
+.submenu-head:hover { background: var(--hover); }
+.submenu-items { display: flex; flex-direction: column; gap: 2px; padding: 0.2rem 0 0.2rem 0.6rem; border-left: 2px solid var(--border); margin-left: 0.6rem; }
