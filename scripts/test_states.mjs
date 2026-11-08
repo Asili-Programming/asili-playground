@@ -23,6 +23,10 @@ for (const [name, spec] of Object.entries(MACHINES)) {
   for (const s of spec.states) if (s !== "unsupported" && s !== "closed") assert.ok(seen.has(s), `${name}: ${s} is reachable`);
 }
 
+// Lint: an edit after a lint makes its findings stale; linting again makes them current.
+assert.equal(walk("lint", "none", ["lint", "edit"]), "stale");
+assert.equal(walk("lint", "none", ["lint", "edit", "lint"]), "shown");
+
 // An event with no transition from the current state is ignored.
 const engine = createMachine("engine");
 assert.equal(engine.send("run"), false, "run while loading is ignored");

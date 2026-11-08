@@ -46,6 +46,19 @@ export const MACHINES = {
       { from: "modified", on: "close", to: "closed" },
     ],
   },
+  // The lint findings of a file: none yet, shown (from the last Lint), or stale (the file was edited
+  // since the last Lint, so its findings no longer match the text).
+  lint: {
+    start: "none",
+    states: ["none", "shown", "stale"],
+    transitions: [
+      { from: "none", on: "lint", to: "shown" },
+      { from: "shown", on: "edit", to: "stale" },
+      { from: "stale", on: "edit", to: "stale" },
+      { from: "shown", on: "lint", to: "shown" },
+      { from: "stale", on: "lint", to: "shown" },
+    ],
+  },
   // The checks of a file: idle, checking after an edit, checked (its problems are shown).
   check: {
     start: "idle",
