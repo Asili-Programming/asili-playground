@@ -659,7 +659,11 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
   background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4); padding-bottom: 0.5rem; }
 .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 8px auto 4px; }
 .sheet-title { font-weight: 700; padding: 0.4rem 1.1rem 0.6rem; }
-.sheet-group { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 0.8rem 1.1rem 0.3rem; }
+.sheet-group { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 2.75rem; padding: 0.6rem 1.1rem;
+  border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-size: 0.95rem; font-weight: 600; text-align: left; }
+.sheet-group::after { content: "\203A"; font-size: 1.3rem; color: var(--muted); transition: transform 0.15s; }
+.sheet-group[aria-expanded="true"]::after { transform: rotate(90deg); }
+.sheet-group-body { padding-bottom: 0.3rem; }
 .sheet-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; width: 100%; min-height: 3rem;
   padding: 0.6rem 1.1rem; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 1rem; text-align: left; }
 .sheet-item:disabled { color: var(--muted); opacity: 0.6; }
