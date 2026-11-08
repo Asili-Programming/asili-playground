@@ -346,6 +346,13 @@ function requestCheck() {
   worker.postMessage({ type: "check", seq: checkSeq, source: editor.state.doc.toString(), modules });
 }
 
+// The tabs and the file list show unsaved changes; they follow edits after a short pause.
+let tabsTimer = null;
+function scheduleTabs() {
+  clearTimeout(tabsTimer);
+  tabsTimer = setTimeout(() => renderTabs(), 150);
+}
+
 function scheduleCheck() {
   clearTimeout(checkTimer);
   checkTimer = setTimeout(requestCheck, 400);
@@ -373,6 +380,7 @@ const state0 = () => EditorState.create({
       if (update.docChanged) {
         if (activeDoc) activeDoc.text = update.state.doc.toString();
         scheduleCheck();
+        scheduleTabs();
       }
       if (update.docChanged || update.selectionSet) updateCursor(update.state);
     }),
@@ -611,7 +619,8 @@ function renderTabs() {
       tab.append(dot);
     }
     const name = document.createElement("span");
-    name.textContent = d.name;
+    const owner = d.projectId ? projectById(d.projectId) : null;
+    name.textContent = owner ? `${owner.name}/${d.file}` : d.name;
     if (isDirty(d)) {
       name.className = "dirty";
       name.title = T.dirtyWarn;
