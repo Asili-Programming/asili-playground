@@ -668,7 +668,19 @@ export function openActionSheet(title, groups) {
   const panel = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": title });
   panel.append(el("div", { class: "sheet-grip", "aria-hidden": "true" }), el("div", { class: "sheet-title" }, title));
   for (const group of groups) {
-    if (group.title) panel.append(el("div", { class: "sheet-group" }, group.title));
+    // A titled group collapses: its header opens and closes its items (all start closed).
+    let target = panel;
+    if (group.title) {
+      const header = el("button", { type: "button", class: "sheet-group", "aria-expanded": "false" }, group.title);
+      const body = el("div", { class: "sheet-group-body", hidden: true });
+      header.addEventListener("click", () => {
+        const open = body.hidden;
+        body.hidden = !open;
+        header.setAttribute("aria-expanded", String(open));
+      });
+      panel.append(header, body);
+      target = body;
+    }
     for (const item of group.items) {
       const button = el("button", { type: "button", class: "sheet-item", role: item.toggle ? "menuitemcheckbox" : "menuitem" }, item.label);
       if (item.toggle) button.setAttribute("aria-checked", String(isOn(item.toggle)));
@@ -678,7 +690,7 @@ export function openActionSheet(title, groups) {
         closeActionSheet();
         item.run?.();
       });
-      panel.append(button);
+      target.append(button);
     }
   }
   const onKey = (e) => { if (e.key === "Escape") closeActionSheet(); };
