@@ -82,6 +82,7 @@ const STRINGS = {
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
     newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha",
+    lintStale: "Imepitwa: msimbo umebadilishwa tangu ukaguzi",
     explorerEmpty: "Hakuna nafasi ya kazi iliyo wazi", explorerNew: "Nafasi mpya ya kazi",
     explorerOpen: "Fungua nafasi ya kazi", explorerSample: "Fungua mfano",
     emptyTitle: "Hakuna faili lililo wazi", emptyNew: "Nafasi mpya ya kazi", emptyOpen: "Fungua mfano",
@@ -143,6 +144,7 @@ const STRINGS = {
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
     newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language",
+    lintStale: "Stale: the file changed since it was linted",
     explorerEmpty: "No workspace is open", explorerNew: "New workspace",
     explorerOpen: "Open workspace", explorerSample: "Open sample",
     emptyTitle: "No file is open", emptyNew: "New workspace", emptyOpen: "Open sample",
@@ -664,6 +666,7 @@ const state0 = () => EditorState.create({
       if (update.docChanged) {
         if (activeDoc) activeDoc.text = update.state.doc.toString();
         scheduleCheck();
+        lintState.send("edit");
         scheduleTabs();
         if (findState.query) setTimeout(() => runFind(findState.query), 0);
       }
@@ -767,6 +770,9 @@ const engine = createMachine("engine", MACHINES.engine, (state) => {
   refreshMenus();
 });
 const checks = createMachine("check", MACHINES.check);
+// The lint findings: shown, or stale after an edit (they no longer match the text). Its changes redraw
+// the Problems list, so a stale finding is marked as such.
+const lintState = createMachine("lint", MACHINES.lint, () => renderAllProblems());
 
 function showState(state, message) {
   // state: "loading" | "ready" | "failed" | "unsupported" | "running"
@@ -801,6 +807,7 @@ function onWorkerMessage(e) {
     if (m.seq === lintSeq) {
       try {
         activeLint = JSON.parse(m.json).map((d) => ({ ...d, code: d.code, lint: true }));
+        lintState.send("lint");
         renderProblems(activeProblems);
         note(activeLint.length ? `${activeLint.length} ${T.problemsIn.toLowerCase()}` : T.lintClean, "ok");
       } catch {
@@ -1011,7 +1018,8 @@ function activate(d) {
     activeDoc.state = editor.state; // keeps undo history and the cursor for this file
   }
   activeDoc = d;
-  setEmptyState(false);
+  activeLint = [];
+  lintState.setDerived("none");
   currentInputs = d.inputs;
   if (d.state) {
     editor.setState(d.state);
@@ -1068,10 +1076,9 @@ function showEmptyState() {
   refreshMenus();
 }
 
-function setEmptyState(on) {
-  document.querySelector(".main")?.classList.toggle("no-doc", on);
-  const empty = document.getElementById("empty-state");
-  if (empty) empty.hidden = !on;
+// The main area's empty state follows the derived main-area state (see syncStates).
+function setEmptyState() {
+  syncStates();
 }
 
 function openProjectFile(p, file) {
@@ -1736,6 +1743,10 @@ function syncStates() {
   workspaceMachine.setDerived(d.workspace);
   derived.explorer = d.explorer;
   derived.mainArea = d.mainArea;
+  const empty = d.mainArea === "empty";
+  document.querySelector(".main")?.classList.toggle("no-doc", empty);
+  const box = document.getElementById("empty-state");
+  if (box) box.hidden = !empty;
   refreshMenus();
 }
 
@@ -1816,6 +1827,10 @@ function renderAllProblems() {
   for (const e of entries) {
     const li = document.createElement("li");
     li.textContent = `${e.file} · Ln ${e.line}: ${e.code} ${e.message}`;
+    if (e.lint && lintState.is("stale")) {
+      li.classList.add("stale");
+      li.title = T.lintStale;
+    }
     li.addEventListener("click", () => openProblem(e));
     list.append(li);
   }
