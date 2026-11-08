@@ -10,7 +10,7 @@ import {
 } from "./project.js";
 import {
   addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
-  showPanel, showView, setRegionVisible, regionVisible, refreshMenus,
+  showPanel, showView, setRegionVisible, regionVisible, refreshMenus, menuViews,
 } from "./layout.js";
 import { registerCommand, runCommand, installKeys, openPalette, openList } from "./commands.js";
 import { saveSession, loadSession } from "./session.js";
