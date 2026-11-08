@@ -102,6 +102,16 @@ a short pause after the last keystroke.
 2. Picking a module that cannot run in a browser (for example a file-system module) shows the
    browser support note instead of failing at run time.
 
+## Flow 6: projects
+
+1. **Faili > Mradi mpya** creates a project with `kuu.as`. The sidebar lists its files with their status.
+2. The name field in the sidebar creates a file: `msaidizi` becomes `msaidizi.as`.
+3. Edits mark the file modified; **Ctrl+S** saves the project to the browser.
+4. **Hamisha nje** downloads `<name>.asili.json`. **Ingiza** loads one, checked before it is kept.
+5. A sample opened with **Hifadhi kama mradi** becomes a project, so it can be edited and saved.
+
+See [06-projects.md](06-projects.md) for the model, the storage and the export format.
+
 ## Edge cases
 
 | Situation | What the user sees |
