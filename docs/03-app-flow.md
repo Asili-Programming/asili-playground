@@ -170,6 +170,21 @@ inside a panel:
   message.
 - The status bar's text is reserved for the engine (Ready, Running, Finished, Error).
 
+## The View menu
+
+The View menu follows VS Code's (checked against the menu as VS Code shows it, and VS Code's
+documented views and layout model). It is built from the registries, not written out:
+
+1. **Command Palette…** and **Open View…** (a list of every view, to show one).
+2. **Appearance ▸**: colour theme, word wrap, and where the sidebars and panel show.
+3. **Editor Layout ▸**: the editor's layout (one editor for now).
+4. **One item per view** that is in the menu, with its key (Explorer, Board, Problems, Output). A
+   view added to the registry is in this menu without a change here.
+5. Word wrap, with its key (Alt+Z).
+
+Separators divide the groups, as in VS Code. A view that cannot show (its region is hidden) still
+opens: showing it makes its region visible.
+
 ## Edge cases
 
 | Situation | What the user sees |
