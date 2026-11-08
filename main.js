@@ -2779,3 +2779,9 @@ if (typeof WebAssembly === "undefined" || typeof Worker === "undefined") {
   startEngine();
 }
 loadSamples().catch((e) => setStatus(`${T.error}: ${e.message}`, "error"));
+
+// The service worker makes the playground installable and lets it open offline (sw.js). It needs a
+// secure origin (https, or localhost); elsewhere the page simply runs without it.
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(() => undefined);
+}
