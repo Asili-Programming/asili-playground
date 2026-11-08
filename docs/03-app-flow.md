@@ -145,9 +145,9 @@ all. A file that is a module reports "no main function" only if it is `kuu.as`.
 
 ### Lint and format
 
-- **Lint file** runs the linter once: state **Linted** holds its findings until the next lint. An edit
-  does not clear them; the findings are stale until the file is linted again. (A stale mark is not yet
-  shown as stale; this is a known gap.)
+- **Lint file** runs the linter once and holds its findings (state **shown**). An edit makes them
+  **stale**: they stay listed, dimmed and marked "the file changed since it was linted", until Lint runs
+  again. Switching files drops the findings of the file being left.
 - **Format document** replaces the text with the formatted text as one edit (Undo restores it). If the
   text is already formatted, the page says so and changes nothing.
 
