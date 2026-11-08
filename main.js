@@ -19,7 +19,7 @@ const lang = LANGS.includes(requested) ? requested : "sw";
 const STRINGS = {
   sw: {
     title: "Asili — Uwanja wa Kuchezea",
-    run: "▶ Endesha", stop: "■ Simamisha", clear: "Futa", output: "Matokeo",
+    run: "▶ Endesha", stop: "■ Simamisha", clear: "Futa", output: "Matokeo", editor: "Msimbo wa Asili",
     clearTitle: "Futa matokeo", sampleTitle: "Chagua mfano",
     loading: "Inapakia…", ready: "Tayari", running: "Inaendesha…", done: "Imekamilika",
     stopped: "Imesimamishwa", error: "Kosa", loadFailed: "Imeshindikana kupakia injini",
@@ -29,7 +29,7 @@ const STRINGS = {
   },
   en: {
     title: "Asili — Playground",
-    run: "▶ Run", stop: "■ Stop", clear: "Clear", output: "Output",
+    run: "▶ Run", stop: "■ Stop", clear: "Clear", output: "Output", editor: "Asili source code",
     clearTitle: "Clear output", sampleTitle: "Choose a sample",
     loading: "Loading…", ready: "Ready", running: "Running…", done: "Finished",
     stopped: "Stopped", error: "Error", loadFailed: "The engine failed to load",
@@ -123,7 +123,10 @@ const state0 = () => EditorState.create({
     StreamLanguage.define(asiliMode),
     keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
     oneDark,
+    // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
+    EditorView.theme({ ".cm-gutters": { color: "#9aa2b5" } }),
     EditorView.lineWrapping,
+    EditorView.contentAttributes.of({ "aria-label": T.editor }),
   ],
 });
 
@@ -139,6 +142,7 @@ const stopBtn = document.getElementById("stop-btn");
 const clearBtn = document.getElementById("clear-btn");
 const samplePicker = document.getElementById("sample-picker");
 const notice = document.getElementById("notice");
+// The notice is an overlay (see style.css), so showing it never moves the editor.
 
 function setStatus(text, kind) {
   statusEl.textContent = text;
