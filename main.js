@@ -85,7 +85,7 @@ const STRINGS = {
     errNotAsiliFile: "Si faili la Asili", errNotText: "Si maandishi", errFileTooBig: "Faili ni kubwa mno",
     errBadBinary: "Faili hili la binary si sahihi", binaryNote: "Faili la binary: haliwezi kuhaririwa",
     sharedSkipped: "Mafaili ya binary hayakujumuishwa kwenye kiungo", filesAdded: "Mafaili yameongezwa",
-    addFiles: "Ongeza mafaili", minimap: "Ramani ndogo", appName: "Asili",
+    addFiles: "Ongeza mafaili", minimap: "Ramani ndogo", appName: "Asili", plainText: "Maandishi tu",
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
@@ -150,7 +150,7 @@ const STRINGS = {
     errNotAsiliFile: "Not an Asili file", errNotText: "Not text", errFileTooBig: "The file is too large",
     errBadBinary: "This binary file is not valid", binaryNote: "Binary file: it cannot be edited",
     sharedSkipped: "Binary files were left out of the link", filesAdded: "Files added",
-    addFiles: "Add files", minimap: "Minimap", appName: "Asili",
+    addFiles: "Add files", minimap: "Minimap", appName: "Asili", plainText: "Plain text",
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
@@ -2069,6 +2069,9 @@ const derived = {};
 const workspaceMachine = createMachine("workspace", MACHINES.workspace);
 function syncStates() {
   updateAppbar();
+  // The status bar's language: Asili for a program, plain text for any other open file.
+  const language = document.getElementById("status-language");
+  if (language) language.textContent = `${tr("lang")}: ${activeDoc && !isProgramDoc(activeDoc) ? tr("plainText") : "Asili"}`;
   const p = activeProject();
   const d = deriveStates({
     workspace: p, openFiles: docs, activeFile: activeDoc,
