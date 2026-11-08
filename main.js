@@ -1,6 +1,6 @@
-// Asili Playground: the page. The program runs in worker.js, so a long run never freezes the
+// Asili IDE: the page. The program runs in worker.js, so a long run never freezes the
 // editor and Stop can end it. Everything here is relative to this file, so the same files work
-// at /playground/, at a self-hosted root, and on 127.0.0.1:8080.
+// at /ide/, at a self-hosted root, and on 127.0.0.1:8080.
 
 import { encodeShare, decodeShare } from "./share.js";
 import {
