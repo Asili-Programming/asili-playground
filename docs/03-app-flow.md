@@ -203,6 +203,10 @@ then again to discard). Every tab can be closed. When the last tab closes, the m
 empty state: the editor is hidden and the page offers New workspace, Open sample and Open recent.
 The empty state is kept across a reload, and Open sample or Open recent returns to the editor.
 
+**Explorer empty state:** with no workspace open, the Explorer says so and offers New workspace, Open
+workspace and Open sample. Its file commands (New file, New folder, Collapse) are off until a
+workspace is open.
+
 **Engine marks:** `Idle` → `Checking` (after an edit, after 400 ms) → `Checked` (its problems are
 shown). An edit sends the file back to `Checking`.
 
