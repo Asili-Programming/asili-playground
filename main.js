@@ -839,6 +839,16 @@ docTabsEl?.addEventListener("scroll", () => {
   clearTimeout(tabsScrollTimer);
   tabsScrollTimer = setTimeout(() => docTabsEl.classList.remove("scrolling"), 900);
 }, { passive: true });
+
+// The mouse wheel scrolls the tab row sideways: a vertical turn moves it along, and the page stays
+// still while the row still has tabs to show. A horizontal wheel (or shift+wheel) scrolls as usual.
+docTabsEl?.addEventListener("wheel", (e) => {
+  if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+  const before = docTabsEl.scrollLeft;
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; // lines to pixels
+  docTabsEl.scrollLeft += dy;
+  if (docTabsEl.scrollLeft !== before) e.preventDefault();
+}, { passive: false });
 window.addEventListener("resize", scheduleMinimap);
 new ResizeObserver(scheduleMinimap).observe(minimapEl);
 
