@@ -334,6 +334,7 @@ function createViews(keep, t) {
       const id = viewFrom(e);
       if (!id) return;
       e.preventDefault();
+      e.stopPropagation(); // the strip would otherwise also move the view to its end
       tab.classList.remove("drop-target");
       moveView(id, tab.closest(".region-strip").dataset.region, tab);
     });
