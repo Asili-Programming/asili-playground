@@ -44,6 +44,16 @@ commands open, save, export, import, rename and delete them.
   `kuu.as`, and it cannot be deleted.
 - **Size limits:** 256 KB per file, 2 MB per project, 32 files. An import above a limit is refused.
 
+## Opening a sample, and Open Recent
+
+- **Open sample** opens a sample as a workspace of its own (its `kuu.as` is the sample's source). The
+  workspace is saved in the browser at once, so it is listed with the others.
+- **Before switching workspaces**, if the open workspace has unsaved changes, the page asks: *Save
+  changes to "<name>" before opening "<next>"?* with Save, Don't save, and Cancel. Cancel keeps the
+  current workspace open.
+- **Open Recent** (File menu) lists the workspaces by when each was last opened, most recent first.
+  A workspace's time is set when it is opened, and it is kept with the workspace.
+
 ## The workspace file
 
 A workspace's configuration is a file at the root of the workspace, `asili-workspace.json`, as a
