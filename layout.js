@@ -174,13 +174,6 @@ export function renderShell(root, { t, embed = false }) {
   );
   root.append(appbar);
   root.append(bodyRow);
-  // On a phone the sidebars and the bottom panel are sheets: a tap on the scrim closes them all.
-  const scrim = el("div", { class: "scrim", id: "scrim", "aria-hidden": "true" });
-  scrim.addEventListener("click", () => {
-    for (const region of REGIONS) if (hasToggle(region)) setToggle(region, false);
-    else setRegionVisible(region, false);
-  });
-  root.append(scrim);
 
   // Status bar.
   const statusbar = el("footer", { class: "statusbar" });
@@ -628,7 +621,8 @@ function renderMobileNav(t) {
     const button = el("button", { type: "button", class: "mobile-nav-btn", "data-mobile": id, "aria-label": t(view.title) });
     button.innerHTML = view.icon ?? "";
     button.append(el("span", { class: "mobile-nav-text" }, t(view.title)));
-    button.addEventListener("click", () => showView(id));
+    // One view at a time on a phone: the others close first.
+    button.addEventListener("click", () => { closeSheets(); showView(id); });
     nav.append(button);
   }
   document.querySelector(".ide")?.append(nav);
