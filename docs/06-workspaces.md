@@ -37,9 +37,13 @@ commands open, save, export, import, rename and delete them.
 }
 ```
 
-- **Files** are keyed by file name. A file name is `<module>.as`, where `<module>` is an Asili
+- **Files** are keyed by file name. A `.as` file name is `<module>.as`, where `<module>` is an Asili
   identifier (letters, digits and `_`, not starting with a digit). `leta <module>` in another file
   imports it, which is why names must be identifiers.
+- **Any file.** A workspace keeps files of any type. A name with another extension (`notes.md`,
+  `data.json`, `pic.png`) may use letters, digits, `_`, `.`, `-` and spaces, and cannot start with a dot.
+  Text files are edited in the editor as plain text. Other files are kept as bytes and shown as a note:
+  they cannot be edited. Only `.as` files are run, checked and linted. Add files with File > Add files.
 - **Entry** is the file that holds `kazi kuu`. It is `kuu` for every project; a project always has
   `kuu.as`, and it cannot be deleted.
 - **Size limits:** 256 KB per file, 2 MB per project, 32 files. An import above a limit is refused.
@@ -95,8 +99,9 @@ A workspace is a directory tree, as on an operating system:
 - **Operations:** create a file or folder inside a folder; rename a file or folder; move a file to
   another folder (drag and drop, or Cut and Paste); delete a file, or a folder with everything in it
   (the entry excepted). Deleting a folder that holds `kuu.as` is refused.
-- **Format.** Version 2 has `files` (keyed by path) and `folders` (a list of paths). Version 1 (flat
-  `files`) is still imported; its names are paths at the root.
+- **Format.** Version 3 has `files` (keyed by path) and `folders` (a list of paths). A file's value is
+  its text (a string) or, for a binary file, `{ "base64": "..." }`. Version 2 and version 1 (flat
+  `files`, text only) are still imported; a version 1 name is a path at the root.
 
 ## The Explorer tree
 
@@ -121,7 +126,7 @@ three buttons: New file, New folder, Collapse all. The workspace is managed from
 - If storage is unavailable (private window, blocked site data), the projects still work for the
   session, and the status bar says the projects are not kept.
 - **Export** downloads the project as `<name>.asili.json` (the model above, pretty-printed).
-- **Import** reads such a file. It must have `schema` `asili-project` and `version` 1, a valid name,
+- **Import** reads such a file. It must have `schema` `asili-project` and a version of 1, 2 or 3, a valid name,
   a valid file set with `kuu.as`, and the size limits. Anything else is refused with a message that
   says which check failed. An imported project with a name already in use gets a numbered name
   (`Hesabu (2)`), so an import never replaces a project.
