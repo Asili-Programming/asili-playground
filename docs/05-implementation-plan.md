@@ -49,10 +49,10 @@ flowchart LR
 | 23 | Keyboard and screen-reader pass | asili-playground | PG-NFR-5 | 4 | Not started |
 | 24 | Wasm size budget and no-external-request check in CI | asili-playground | PG-NFR-1–3 | 4 | Not started |
 | 26 | IDE shell: menu bar, primary and secondary sidebars, editor tabs, tabbed bottom panel, status bar | asili-playground | PG-5, PG-8 | 2 | Done: layout is data (`layout.js`), tabs, Problems panel, status bar, View toggles; Majaribio panel is task 16 |
-| 27 | Projects model and validation (`project.js`, Node-tested) | asili-playground | PG-5, Projects | 2 | In progress |
-| 28 | Create, delete and track files; save to browser storage | asili-playground | Projects | 2 | Not started |
-| 29 | Export and import `.asili.json` with validation | asili-playground | Projects | 2 | Not started |
-| 30 | Run a project with `runBundle` | asili-playground, Asili (`driver/wasm`) | PG-5 | 2 | Not started |
+| 27 | Projects model and validation (`project.js`, Node-tested) | asili-playground | PG-5, Projects | 2 | Done: `scripts/test_project.mjs` |
+| 28 | Create, delete and track files; save to browser storage | asili-playground | Projects | 2 | Done in code; browser check pending |
+| 29 | Export and import `.asili.json` with validation | asili-playground | Projects | 2 | Done in code (validation tested); download and file picker checked by hand |
+| 30 | Run a project with `runBundle` | asili-playground, Asili (`driver/wasm`) | PG-5 | 2 | Done in code; `checkWithModules` in Asili `develop` |
 | 25 | Virtual board: `runBoard`, event channel, board panel, `ubao` sample | Asili + asili-playground | board (Asili `ubao`) | 1 | Done (Asili 0.7.0; playground `main`) |
 
 v2 (after launch): trace tab (`trace` export), hover and completion in a worker, REPL panel,

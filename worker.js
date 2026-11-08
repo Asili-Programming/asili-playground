@@ -63,8 +63,12 @@ self.addEventListener("message", async (e) => {
       return;
     }
     if (typeof glue.check !== "function") return;
+    const modules = (e.data.modules || []).join(",");
     try {
-      send({ type: "diag", seq: e.data.seq, json: glue.check(e.data.source) });
+      const json = modules && typeof glue.checkWithModules === "function"
+        ? glue.checkWithModules(e.data.source, modules)
+        : glue.check(e.data.source);
+      send({ type: "diag", seq: e.data.seq, json });
     } catch {
       // Ignored: the editor keeps its previous marks.
     }
@@ -79,7 +83,12 @@ self.addEventListener("message", async (e) => {
   }
   try {
     // Every run is on the virtual board; a sample with no `# in:` lines just has no pin levels.
-    glue.runBoard(e.data.source, Float64Array.from(e.data.board || []));
+    if (e.data.bundle) {
+      // A project: every file is a module of the bundle, and kuu is the entry.
+      glue.runBundle(e.data.bundle.entry, e.data.bundle.modules);
+    } else {
+      glue.runBoard(e.data.source, Float64Array.from(e.data.board || []));
+    }
     send({ type: "done" });
   } catch (err) {
     send({ type: "error", message: String(err && err.message ? err.message : err) });
