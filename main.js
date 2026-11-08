@@ -81,6 +81,8 @@ const STRINGS = {
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
     newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha",
+    emptyTitle: "Hakuna faili lililo wazi", emptyNew: "Nafasi mpya ya kazi", emptyOpen: "Fungua mfano",
+    emptyRecent: "Fungua hivi karibuni",
     openView: "Fungua mwonekano…", appearance: "Mwonekano wa skrini", editorLayout: "Mpangilio wa mhariri",
     singleEditor: "Mhariri mmoja", wordWrap: "Kufunga maneno",
     openRecent: "Fungua hivi karibuni", saveBefore: "Hifadhi mabadiliko ya", beforeOpening: "kabla ya kufungua",
@@ -138,6 +140,8 @@ const STRINGS = {
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
     newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language",
+    emptyTitle: "No file is open", emptyNew: "New workspace", emptyOpen: "Open sample",
+    emptyRecent: "Open recent",
     openView: "Open View…", appearance: "Appearance", editorLayout: "Editor Layout",
     singleEditor: "Single editor", wordWrap: "Word Wrap",
     openRecent: "Open recent", saveBefore: "Save changes to", beforeOpening: "before opening",
@@ -201,9 +205,9 @@ registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAl
 registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleSetting("light") });
 registerCommand({ id: "view.wrap", title: "Word wrap", key: "Alt+Z", inEditor: true, run: () => toggleSetting("wrap") });
 registerCommand({ id: "tools.format", title: "Format document", key: "Alt+Shift+F", inEditor: true,
-  run: () => requestFormat(), enabled: () => engineReady && !busy });
+  run: () => requestFormat(), enabled: () => engineReady && !busy && !!activeDoc });
 registerCommand({ id: "tools.lint", title: "Lint file", run: () => requestLint(),
-  enabled: () => engineReady && !busy });
+  enabled: () => engineReady && !busy && !!activeDoc });
 registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
 registerCommand({ id: "project.rename", title: "Rename workspace", run: () => renameActiveProject(),
   enabled: () => !!activeProject() });
@@ -425,6 +429,7 @@ if (isEmbed) {
   setToggle("secondary", false, { force: true });
 }
 mountFindBar();
+mountEmptyState();
 showPanel("output");
 onToggleChange(() => refreshMenus());
 
@@ -573,7 +578,11 @@ window.addEventListener("beforeunload", (e) => {
 // Put the saved files back as tabs; returns false when there was nothing to restore.
 function restoreSession(samplesOf) {
   const saved = loadSession();
-  if (!saved || saved.docs.length === 0) return false;
+  if (!saved) return false;
+  if (saved.docs.length === 0) {
+    showEmptyState();
+    return true;
+  }
   for (const sd of saved.docs) {
     if (docs.some((d) => d.key === sd.key)) continue;
     if (sd.key.startsWith("p:")) {
@@ -831,7 +840,7 @@ function finishRun(text, kind) {
 }
 
 function run() {
-  if (!engineReady || busy) return;
+  if (!engineReady || busy || !activeDoc) return;
   busy = true;
   outputEl.textContent = "";
   refreshMenus();
@@ -870,6 +879,24 @@ function stop() {
 // ---- Samples --------------------------------------------------------------------------------
 // samples/manifest.json lists {file, label, label_en}; the label follows the interface language.
 let currentInputs = [];
+// The empty state's buttons run the commands they name.
+function mountEmptyState() {
+  const box = document.createElement("div");
+  box.id = "empty-state";
+  box.className = "empty-state";
+  box.hidden = true;
+  box.innerHTML = `<h2>${T.emptyTitle}</h2>
+    <div class="empty-actions">
+      <button type="button" data-run="project.new">${T.emptyNew}</button>
+      <button type="button" data-run="file.openSample">${T.emptyOpen}</button>
+      <button type="button" data-run="file.openRecent">${T.emptyRecent}</button>
+    </div>`;
+  box.addEventListener("click", (e) => {
+    const id = e.target?.dataset?.run;
+    if (id) runCommand(id);
+  });
+  document.querySelector(".main-body")?.append(box);
+}
 let samplesById = new Map();
 
 // ---- Documents: the tabs ---------------------------------------------------------------------
@@ -970,6 +997,7 @@ function activate(d) {
     activeDoc.state = editor.state; // keeps undo history and the cursor for this file
   }
   activeDoc = d;
+  setEmptyState(false);
   currentInputs = d.inputs;
   if (d.state) {
     editor.setState(d.state);
@@ -997,28 +1025,39 @@ function requestClose(d) {
   closeDoc(d);
 }
 
-function closeDoc(d, { force = false } = {}) {
+function closeDoc(d) {
   if (!d) return;
   const i = docs.indexOf(d);
   if (i < 0) return;
-  if (docs.length === 1 && !force) {
-    note(T.lastFile, "ok");
-    return;
-  }
   docs.splice(i, 1);
   if (d === activeDoc) {
     activeDoc = null;
-    if (docs.length) {
-      activate(docs[Math.max(0, i - 1)]);
-    } else {
-      const first = [...samplesById.keys()][0];
-      if (first) openSample(first);
-    }
+    if (docs.length) activate(docs[Math.max(0, i - 1)]);
+    else showEmptyState();
   } else {
     renderTabs();
   }
   persistSession();
   refreshMenus();
+}
+
+// No open file: the main area shows its empty state (the editor is hidden), and the menus that need
+// a file are off.
+function showEmptyState() {
+  activeDoc = null;
+  currentInputs = [];
+  editor.setState(state0());
+  setEmptyState(true);
+  renderProblems([]);
+  renderTabs();
+  persistSession();
+  refreshMenus();
+}
+
+function setEmptyState(on) {
+  document.querySelector(".main")?.classList.toggle("no-doc", on);
+  const empty = document.getElementById("empty-state");
+  if (empty) empty.hidden = !on;
 }
 
 function openProjectFile(p, file) {

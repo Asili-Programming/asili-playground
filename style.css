@@ -510,3 +510,11 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 .menu-items button[data-toggle] { padding-left: 1.5rem; position: relative; }
 .menu-items button[data-toggle]::before { content: ""; position: absolute; left: 0.6rem; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: transparent; }
 .menu-items button[data-toggle][aria-checked="true"]::before { background: var(--accent); }
+
+/* ---- The main area's empty state: no open file ---------------------------------------------- */
+.main.no-doc #editor, .main.no-doc .notice { display: none; }
+.empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--muted); text-align: center; padding: 1rem; }
+.empty-state[hidden] { display: none; }
+.empty-state h2 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
+.empty-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.empty-actions button { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
