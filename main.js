@@ -12,6 +12,7 @@ import {
   showPanel, setRegionVisible, regionVisible, refreshMenus,
 } from "./layout.js";
 import { registerCommand, runCommand, installKeys, openPalette } from "./commands.js";
+import { saveSession, loadSession } from "./session.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
@@ -117,7 +118,7 @@ registerCommand({ id: "palette.open", title: "Command palette", key: ["Ctrl+Shif
   inEditor: true, inInput: true, run: () => openPalette() });
 registerCommand({ id: "project.new", title: "New project", run: () => newProjectFromInput() });
 registerCommand({ id: "project.save", title: "Save project", key: "Ctrl+S", inEditor: true, inInput: true,
-  run: () => saveActiveProject(), enabled: () => !!activeDoc?.projectId });
+  run: () => (activeDoc?.projectId ? saveActiveProject() : saveSampleAsProject()), enabled: () => !!activeDoc });
 registerCommand({ id: "project.saveAsProject", title: "Save sample as project", run: () => saveSampleAsProject(),
   enabled: () => !!activeDoc && !activeDoc.projectId });
 registerCommand({ id: "project.export", title: "Export project", run: () => exportActiveProject(),
@@ -389,6 +390,51 @@ let tabsTimer = null;
 function scheduleTabs() {
   clearTimeout(tabsTimer);
   tabsTimer = setTimeout(() => renderTabs(), 150);
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(persistSession, 400);
+}
+
+// The open files, their unsaved text and the active one, so a reload brings the work back.
+let sessionTimer = null;
+let sessionSaved = true;
+function persistSession() {
+  const data = {
+    active: activeDoc?.key ?? null,
+    docs: docs.map((d) => ({ key: d.key, name: d.name, projectId: d.projectId, file: d.file,
+      text: d === activeDoc ? editor.state.doc.toString() : d.text })),
+  };
+  sessionSaved = saveSession(data);
+}
+
+// Without storage, unsaved work would be lost on close: ask before the page goes.
+window.addEventListener("beforeunload", (e) => {
+  if (!sessionSaved || docs.some((d) => isDirty(d))) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
+// Put the saved files back as tabs; returns false when there was nothing to restore.
+function restoreSession(samplesOf) {
+  const saved = loadSession();
+  if (!saved || saved.docs.length === 0) return false;
+  for (const sd of saved.docs) {
+    if (docs.some((d) => d.key === sd.key)) continue;
+    if (sd.key.startsWith("p:")) {
+      const p = projectById(sd.projectId);
+      if (!p || !(sd.file in p.files)) continue;
+      docs.push({ key: sd.key, name: sd.name, text: sd.text, inputs: [], error: false,
+        projectId: p.id, file: sd.file });
+    } else if (sd.key.startsWith("s:")) {
+      const file = sd.key.slice(2);
+      docs.push({ key: sd.key, name: sd.name, text: sd.text, inputs: samplesOf(file), error: false,
+        projectId: null, file: null });
+    }
+  }
+  const active = docs.find((d) => d.key === saved.active) ?? docs[0];
+  if (!active) return false;
+  activate(active);
+  return true;
 }
 
 function scheduleCheck() {
@@ -407,7 +453,7 @@ const state0 = () => EditorState.create({
     indentOnInput(),
     bracketMatching(),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-    StreamLanguage.define(asiliMode),
+    StreamLanguage.define({ ...asiliMode, languageData: { commentTokens: { line: "#" } } }),
     keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
     oneDark,
     // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
@@ -693,11 +739,19 @@ function openDoc(key, name, text, extra = {}) {
 
 function activate(d) {
   if (d === activeDoc) return;
-  if (activeDoc) activeDoc.text = editor.state.doc.toString();
+  if (activeDoc) {
+    activeDoc.text = editor.state.doc.toString();
+    activeDoc.state = editor.state; // keeps undo history and the cursor for this file
+  }
   activeDoc = d;
   currentInputs = d.inputs;
-  editor.setState(state0());
-  editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: d.text } });
+  if (d.state) {
+    editor.setState(d.state);
+  } else {
+    editor.setState(state0());
+    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: d.text } });
+  }
+  persistSession();
   renderProblems([]);
   renderTabs();
   if (d.projectId) activeProjectId = d.projectId;
@@ -977,9 +1031,33 @@ function updateCursor(state) {
 }
 
 // Share: the program goes into the link's fragment (see share.js), so the server never sees it.
+// A shared link with one file opens as a tab; with several files it becomes a project (named Kiungo).
+function openSharedFiles(files) {
+  const names = Object.keys(files);
+  if (names.length === 1) {
+    openDoc("link", names[0], files[names[0]]);
+    return;
+  }
+  const name = uniqueName("Kiungo", projects.map((x) => x.name));
+  const project = importProject(JSON.stringify({
+    schema: "asili-project", version: 1, name, entry: "kuu", files,
+    created: new Date().toISOString(),
+  }));
+  project.id = newId();
+  projects.push(project);
+  activeProjectId = project.id;
+  persistProjects();
+  openProjectFile(project, ENTRY);
+  renderProjectSection();
+}
+
 async function shareCurrent() {
   try {
-    const token = await encodeShare({ "kuu.as": editor.state.doc.toString() });
+    const p = activeProject();
+    const files = p && activeDoc?.projectId === p.id
+      ? liveProject(p).files
+      : { "kuu.as": editor.state.doc.toString() };
+    const token = await encodeShare(files);
     const url = `${location.origin}${location.pathname}?lugha=${lang}#k=${token}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -1005,17 +1083,18 @@ async function loadSamples() {
     opt.textContent = (lang === "en" && sample.label_en) ? sample.label_en : sample.label;
     picker.appendChild(opt);
   }
-  // A share link (#k=) wins; then the active project's entry; then the sample ?sample= or the first.
+  // A share link (#k=) wins; then the saved session; then the active project's entry; then the sample.
   let opened = false;
   if (location.hash.startsWith("#k=")) {
     try {
-      const files = await decodeShare(location.hash.slice(3));
-      const [name, text] = Object.entries(files)[0];
-      openDoc("link", name, text);
+      openSharedFiles(await decodeShare(location.hash.slice(3)));
       opened = true;
     } catch {
       setStatus(T.linkBad, "error");
     }
+  }
+  if (!opened && !location.hash.startsWith("#k=")) {
+    opened = restoreSession((file) => samplesById.get(file)?.inputs ?? []);
   }
   if (!opened && activeProject()) {
     openProjectFile(activeProject(), ENTRY);

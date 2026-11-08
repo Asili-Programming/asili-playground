@@ -7,6 +7,15 @@ export const ENTRY = "kuu.as";
 export const LIMITS = { fileBytes: 256 * 1024, projectBytes: 2 * 1024 * 1024, files: 32 };
 
 const MODULE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+// An error with a key (the page shows the text for its language) and an optional detail.
+export class ProjectError extends Error {
+  constructor(key, detail = "") {
+    super(detail ? `${key}: ${detail}` : key);
+    this.key = key;
+    this.detail = detail;
+  }
+}
 const STORAGE_KEY = "asili-projects-v1";
 
 // A stable id for a project: kept in storage, so an export does not carry it.
@@ -40,7 +49,7 @@ const bytes = (text) => encoder.encode(text).length;
 // "msaidizi" -> "msaidizi.as". Throws for a name that is not an Asili module name.
 export function fileNameFor(module) {
   const name = String(module ?? "").trim();
-  if (!MODULE.test(name)) throw new Error(`jina '${name}' si sahihi: tumia herufi, namba na _`);
+  if (!MODULE.test(name)) throw new ProjectError("badName", name);
   return `${name}.as`;
 }
 
@@ -71,16 +80,26 @@ export function projectFromSample(name, source, now = new Date().toISOString()) 
 
 export function addFile(project, module, text = "") {
   const file = fileNameFor(module);
-  if (file in project.files) throw new Error(`faili '${file}' lipo tayari`);
-  if (Object.keys(project.files).length >= LIMITS.files) throw new Error("miradi imefikia idadi ya mafaili");
+  if (file in project.files) throw new ProjectError("fileExists", file);
+  if (Object.keys(project.files).length >= LIMITS.files) throw new ProjectError("tooManyFiles");
   project.files[file] = text;
   return file;
 }
 
 export function deleteFile(project, file) {
-  if (file === ENTRY) throw new Error("kuu.as haiwezi kufutwa");
-  if (!(file in project.files)) throw new Error(`faili '${file}' halipo`);
+  if (file === ENTRY) throw new ProjectError("entryDelete");
+  if (!(file in project.files)) throw new ProjectError("fileMissing", file);
   delete project.files[file];
+}
+
+export function renameFile(project, file, module) {
+  if (file === ENTRY) throw new ProjectError("entryRename");
+  if (!(file in project.files)) throw new ProjectError("fileMissing", file);
+  const next = fileNameFor(module);
+  if (next === file) return file;
+  if (next in project.files) throw new ProjectError("fileExists", next);
+  project.files = Object.fromEntries(Object.entries(project.files).map(([k, v]) => [k === file ? next : k, v]));
+  return next;
 }
 
 // "saved" when the text equals what the project holds, otherwise "modified".
@@ -111,24 +130,24 @@ export function importProject(text, now = new Date().toISOString()) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("faili hili si JSON");
+    throw new ProjectError("notJson");
   }
-  if (!data || typeof data !== "object") throw new Error("faili hili si mradi wa Asili");
-  if (data.schema !== SCHEMA) throw new Error("faili hili si mradi wa Asili (schema)");
-  if (data.version !== VERSION) throw new Error(`toleo la mradi ${data.version} halitambuliki`);
-  if (typeof data.name !== "string" || data.name.trim() === "") throw new Error("mradi hauna jina");
+  if (!data || typeof data !== "object") throw new ProjectError("notAsili");
+  if (data.schema !== SCHEMA) throw new ProjectError("notAsili");
+  if (data.version !== VERSION) throw new ProjectError("version", String(data.version));
+  if (typeof data.name !== "string" || data.name.trim() === "") throw new ProjectError("noName");
   if (!data.files || typeof data.files !== "object" || Array.isArray(data.files)) {
-    throw new Error("mradi hauna mafaili");
+    throw new ProjectError("noFiles");
   }
   const names = Object.keys(data.files);
-  if (names.length === 0) throw new Error("mradi hauna mafaili");
-  if (names.length > LIMITS.files) throw new Error("mradi una mafaili mengi mno");
-  if (!(ENTRY in data.files)) throw new Error("mradi hauna kuu.as");
+  if (names.length === 0) throw new ProjectError("noFiles");
+  if (names.length > LIMITS.files) throw new ProjectError("tooManyFiles");
+  if (!(ENTRY in data.files)) throw new ProjectError("noEntry");
   for (const name of names) {
-    if (!name.endsWith(".as")) throw new Error(`faili '${name}' si la Asili`);
+    if (!name.endsWith(".as")) throw new ProjectError("notAsiliFile", name);
     if (name !== ENTRY) fileNameFor(moduleOf(name));
-    if (typeof data.files[name] !== "string") throw new Error(`faili '${name}' si maandishi`);
-    if (bytes(data.files[name]) > LIMITS.fileBytes) throw new Error(`faili '${name}' ni kubwa mno`);
+    if (typeof data.files[name] !== "string") throw new ProjectError("notText", name);
+    if (bytes(data.files[name]) > LIMITS.fileBytes) throw new ProjectError("fileTooBig", name);
   }
   const project = {
     schema: SCHEMA,
@@ -139,7 +158,7 @@ export function importProject(text, now = new Date().toISOString()) {
     created: typeof data.created === "string" ? data.created : now,
     updated: now,
   };
-  if (sizeOf(project) > LIMITS.projectBytes) throw new Error("mradi ni mkubwa mno");
+  if (sizeOf(project) > LIMITS.projectBytes) throw new ProjectError("projectTooBig");
   return project;
 }
 

@@ -72,10 +72,13 @@ export function installKeys(target = window) {
   });
 }
 
-// ---- Command palette -------------------------------------------------------------------------
+// ---- List overlay: the command palette and quick open ------------------------------------------
+// openList shows a filterable list; each item is { label, detail?, run, enabled? }.
 let palette = null;
 let shown = [];
 let cursor = 0;
+let source = [];
+let placeholderText = "";
 
 function ensurePalette() {
   if (palette) return palette;
@@ -84,7 +87,7 @@ function ensurePalette() {
   palette.className = "palette";
   palette.hidden = true;
   palette.innerHTML = `
-    <div class="palette-box" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div class="palette-box" role="dialog" aria-modal="true" aria-label="Palette">
       <input id="palette-input" type="text" autocomplete="off" aria-controls="palette-list" />
       <ul id="palette-list" role="listbox"></ul>
     </div>`;
@@ -97,35 +100,36 @@ function ensurePalette() {
   input.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") { cursor = Math.min(cursor + 1, shown.length - 1); highlight(); e.preventDefault(); }
     else if (e.key === "ArrowUp") { cursor = Math.max(cursor - 1, 0); highlight(); e.preventDefault(); }
-    else if (e.key === "Enter") { e.preventDefault(); const c = shown[cursor]; closePalette(); if (c) runCommand(c.id); }
+    else if (e.key === "Enter") { e.preventDefault(); const item = shown[cursor]; closePalette(); if (item && isItemEnabled(item)) item.run(); }
     else if (e.key === "Escape") { e.preventDefault(); closePalette(); }
   });
   return palette;
 }
 
+const isItemEnabled = (item) => (item.enabled ? !!item.enabled() : true);
+
 function renderList(query) {
   const q = query.trim().toLowerCase();
-  shown = allCommands()
-    .filter((c) => c.title && (q === "" || c.title.toLowerCase().includes(q) || c.id.includes(q)))
-    .sort((a, b) => a.title.localeCompare(b.title));
+  shown = source.filter((item) => item.label && (q === "" || item.label.toLowerCase().includes(q)
+    || (item.detail ?? "").toLowerCase().includes(q)));
   cursor = 0;
   const list = palette.querySelector("#palette-list");
-  list.replaceChildren(...shown.map((c, i) => {
+  list.replaceChildren(...shown.map((item, i) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option");
     li.dataset.index = String(i);
-    li.textContent = c.title;
-    if (keysOf(c).length) {
+    li.append(document.createTextNode(item.label));
+    if (item.detail) {
       const k = document.createElement("span");
       k.className = "palette-key";
-      k.textContent = keysOf(c).join(" · ");
+      k.textContent = item.detail;
       li.append(k);
     }
-    if (!isEnabled(c)) li.classList.add("disabled");
+    if (!isItemEnabled(item)) li.classList.add("disabled");
     li.addEventListener("mousedown", (e) => {
       e.preventDefault();
       closePalette();
-      if (isEnabled(c)) c.run();
+      if (isItemEnabled(item)) item.run();
     });
     return li;
   }));
@@ -138,13 +142,32 @@ function highlight() {
   items[cursor]?.scrollIntoView?.({ block: "nearest" });
 }
 
-export function openPalette() {
+export function openList({ placeholder = "", items }) {
   const p = ensurePalette();
+  source = items;
+  placeholderText = placeholder;
   p.hidden = false;
   const input = p.querySelector("#palette-input");
   input.value = "";
+  input.placeholder = placeholderText;
   renderList("");
   input.focus();
+}
+
+// The command palette: every command, with its key.
+export function openPalette() {
+  openList({
+    placeholder: "Amri",
+    items: allCommands()
+      .filter((c) => c.title)
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map((c) => ({
+        label: c.title,
+        detail: keysOf(c).join(" · "),
+        enabled: () => isEnabled(c),
+        run: () => runCommand(c.id),
+      })),
+  });
 }
 
 export function closePalette() {

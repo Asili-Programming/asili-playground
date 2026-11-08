@@ -129,6 +129,7 @@ export function renderShell(root, { t, embed = false }) {
   bodyRow.append(activity);
   const workbench = el("div", { class: "workbench" });
   workbench.append(sidebar("primary", "aside", keep, t));
+  workbench.append(splitter("primary"));
 
   const main = el("section", { id: "editor-pane", class: "main", "aria-label": t("editor") });
   main.append(
@@ -139,6 +140,7 @@ export function renderShell(root, { t, embed = false }) {
   main.append(bottomPanel(keep, t));
   workbench.append(main);
 
+  workbench.append(splitter("secondary"));
   workbench.append(sidebar("secondary", "aside", keep, t));
   bodyRow.append(workbench);
   root.append(bodyRow);
@@ -151,7 +153,96 @@ export function renderShell(root, { t, embed = false }) {
     statusbar.append(slot);
   }
   root.append(statusbar);
+  wireMenus(root);
+  applyStoredSizes();
 
+}
+
+// Sizes of the regions, as CSS variables on .ide: --primary-w, --secondary-w, --panel-h.
+const SIZES_KEY = "asili-layout-v1";
+const SIZE_LIMITS = { primary: [120, 480], secondary: [140, 480], panel: [80, 600] };
+const DEFAULT_SIZES = { primary: 240, secondary: 272, panel: 208 };
+const VARIABLES = { primary: "--primary-w", secondary: "--secondary-w", panel: "--panel-h" };
+
+function storedSizes() {
+  try {
+    return { ...DEFAULT_SIZES, ...JSON.parse(localStorage.getItem(SIZES_KEY) ?? "{}") };
+  } catch {
+    return { ...DEFAULT_SIZES };
+  }
+}
+
+function applySize(region, px) {
+  const [min, max] = SIZE_LIMITS[region];
+  const value = Math.min(max, Math.max(min, Math.round(px)));
+  document.querySelector(".ide")?.style.setProperty(VARIABLES[region], `${value}px`);
+  return value;
+}
+
+// A draggable bar between two regions. Dragging changes the region's size; the size is kept.
+function splitter(region) {
+  const bar = el("div", { class: `splitter splitter-${region}`, role: "separator", "aria-orientation": region === "panel" ? "horizontal" : "vertical", "data-region": region });
+  bar.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    bar.setPointerCapture(event.pointerId);
+    const start = region === "panel" ? event.clientY : event.clientX;
+    const size = storedSizes()[region];
+    const move = (e) => {
+      const now = region === "panel" ? e.clientY : e.clientX;
+      // The primary sidebar grows to the right; the secondary and the panel grow to the left and up.
+      const delta = region === "primary" ? now - start : start - now;
+      applySize(region, size + delta);
+    };
+    const up = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", up);
+      const sizes = storedSizes();
+      sizes[region] = parseInt(getComputedStyle(document.querySelector(".ide")).getPropertyValue(VARIABLES[region]), 10) || sizes[region];
+      try { localStorage.setItem(SIZES_KEY, JSON.stringify(sizes)); } catch { /* sizes are kept for this visit only */ }
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", up);
+  });
+  return bar;
+}
+
+// Apply the remembered sizes once the shell exists.
+function applyStoredSizes() {
+  const sizes = storedSizes();
+  for (const region of Object.keys(VARIABLES)) applySize(region, sizes[region]);
+}
+
+// Menus: a click outside or Escape closes the open menu; hovering another menu opens it; arrow keys
+// move through the items.
+function wireMenus(root) {
+  const menus = () => [...root.querySelectorAll("details.menu")];
+  document.addEventListener("click", (e) => {
+    for (const m of menus()) if (m.open && !m.contains(e.target)) m.open = false;
+  });
+  root.addEventListener("keydown", (e) => {
+    const open = menus().find((m) => m.open);
+    if (e.key === "Escape" && open) {
+      open.open = false;
+      open.querySelector("summary").focus();
+      e.preventDefault();
+      return;
+    }
+    if (!open || !(e.key === "ArrowDown" || e.key === "ArrowUp")) return;
+    const items = [...open.querySelectorAll(".menu-items button:not(:disabled), .menu-items a")];
+    const at = items.indexOf(document.activeElement);
+    const next = items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length];
+    next?.focus();
+    e.preventDefault();
+  });
+  for (const m of menus()) {
+    m.querySelector("summary").addEventListener("pointerenter", () => {
+      const current = menus().find((x) => x.open);
+      if (current && current !== m) {
+        current.open = false;
+        m.open = true;
+      }
+    });
+  }
 }
 
 function sidebar(side, tag, keep, t) {

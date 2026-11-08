@@ -2,15 +2,16 @@
 //   node scripts/test_project.mjs
 import assert from "node:assert/strict";
 import * as P from "../project.js";
+const keyOf = (fn) => { try { fn(); return "none"; } catch (e) { return e.key ?? e.message; } };
 
 const p = P.newProject("Hesabu", "2026-11-08T00:00:00Z");
 assert.deepEqual(Object.keys(p.files), ["kuu.as"]);
 
 assert.equal(P.addFile(p, "msaidizi", "umma kazi a() {}\n"), "msaidizi.as");
-assert.throws(() => P.addFile(p, "msaidizi"), /lipo tayari/);
-assert.throws(() => P.addFile(p, "1abc"), /si sahihi/);
-assert.throws(() => P.addFile(p, "a-b"), /si sahihi/);
-assert.throws(() => P.deleteFile(p, "kuu.as"), /haiwezi kufutwa/);
+assert.equal(keyOf(() => P.addFile(p, "msaidizi")), "fileExists");
+assert.equal(keyOf(() => P.addFile(p, "1abc")), "badName");
+assert.equal(keyOf(() => P.addFile(p, "a-b")), "badName");
+assert.equal(keyOf(() => P.deleteFile(p, "kuu.as")), "entryDelete");
 P.deleteFile(p, "msaidizi.as");
 assert.equal(P.fileStatus(p, "kuu.as", p.files["kuu.as"]), "saved");
 assert.equal(P.fileStatus(p, "kuu.as", p.files["kuu.as"] + "x"), "modified");
@@ -23,16 +24,23 @@ assert.equal(back.name, "Hesabu");
 assert.equal(back.created, "2026-11-08T00:00:00Z");
 
 // Refusals, each with its reason.
-const bad = (doc, re) => assert.throws(() => P.importProject(typeof doc === "string" ? doc : JSON.stringify(doc)), re);
-bad("{not json", /JSON/);
-bad({ ...back, schema: "other" }, /schema/);
-bad({ ...back, version: 2 }, /toleo/);
-bad({ ...back, name: "" }, /jina/);
-bad({ ...back, files: { "msaidizi.as": "x" } }, /kuu\.as/);
-bad({ ...back, files: { "kuu.as": "x", "a-b.as": "y" } }, /si sahihi/);
-bad({ ...back, files: { "kuu.as": "x", "notes.txt": "y" } }, /si la Asili/);
-bad({ ...back, files: { "kuu.as": 3 } }, /si maandishi/);
-bad({ ...back, files: { "kuu.as": "x".repeat(P.LIMITS.fileBytes + 1) } }, /kubwa mno/);
+const bad = (doc, key) => assert.equal(keyOf(() => P.importProject(typeof doc === "string" ? doc : JSON.stringify(doc))), key);
+bad("{not json", "notJson");
+bad({ ...back, schema: "other" }, "notAsili");
+bad({ ...back, version: 2 }, "version");
+bad({ ...back, name: "" }, "noName");
+bad({ ...back, files: { "msaidizi.as": "x" } }, "noEntry");
+bad({ ...back, files: { "kuu.as": "x", "a-b.as": "y" } }, "badName");
+bad({ ...back, files: { "kuu.as": "x", "notes.txt": "y" } }, "notAsiliFile");
+bad({ ...back, files: { "kuu.as": 3 } }, "notText");
+bad({ ...back, files: { "kuu.as": "x".repeat(P.LIMITS.fileBytes + 1) } }, "fileTooBig");
+
+// Rename: the entry cannot be renamed, a taken name is refused, the rest moves with the file.
+assert.equal(keyOf(() => P.renameFile(p, "kuu.as", "mpya")), "entryRename");
+assert.equal(keyOf(() => P.renameFile(p, "takwimu.as", "kuu")), "fileExists");
+assert.equal(P.renameFile(p, "takwimu.as", "mpya"), "mpya.as");
+assert.ok("mpya.as" in p.files && !("takwimu.as" in p.files));
+P.renameFile(p, "mpya.as", "takwimu");
 
 // Names taken on import get a number, never a replacement.
 assert.equal(P.uniqueName("Hesabu", ["Hesabu"]), "Hesabu (2)");
