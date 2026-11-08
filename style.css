@@ -519,6 +519,18 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 
 /* ---- The main area's empty state: no open file ---------------------------------------------- */
 .main.no-doc #editor, .main.no-doc .notice { display: none; }
+/* The minimap: the editor's right edge, a picture of the file with the part in view outlined. */
+.minimap { position: absolute; top: 0; right: 0; bottom: 0; width: 84px; overflow: hidden; cursor: pointer;
+  background: var(--panel); border-left: 1px solid var(--border); user-select: none; touch-action: none; }
+.minimap[hidden] { display: none; }
+.minimap canvas { display: block; }
+.minimap-view { position: absolute; left: 0; right: 0; top: 0; height: 0; pointer-events: none;
+  background: rgba(242, 177, 52, 0.16); border-top: 1px solid rgba(242, 177, 52, 0.55);
+  border-bottom: 1px solid rgba(242, 177, 52, 0.55); }
+.main-body.minimap-on #editor { margin-right: 84px; }
+.main.no-doc .minimap, .main.binary .minimap { display: none; }
+.main.no-doc .main-body.minimap-on #editor, .main.binary .main-body.minimap-on #editor { margin-right: 0; }
+
 /* A binary file: the editor is hidden and the note shows instead. */
 .main.binary #editor { display: none; }
 .binary-view { display: none; padding: 1rem; color: var(--muted); font-size: 0.9rem; }

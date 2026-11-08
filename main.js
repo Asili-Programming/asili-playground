@@ -81,7 +81,7 @@ const STRINGS = {
     errNotAsiliFile: "Si faili la Asili", errNotText: "Si maandishi", errFileTooBig: "Faili ni kubwa mno",
     errBadBinary: "Faili hili la binary si sahihi", binaryNote: "Faili la binary: haliwezi kuhaririwa",
     sharedSkipped: "Mafaili ya binary hayakujumuishwa kwenye kiungo", filesAdded: "Mafaili yameongezwa",
-    addFiles: "Ongeza mafaili",
+    addFiles: "Ongeza mafaili", minimap: "Ramani ndogo",
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
@@ -146,7 +146,7 @@ const STRINGS = {
     errNotAsiliFile: "Not an Asili file", errNotText: "Not text", errFileTooBig: "The file is too large",
     errBadBinary: "This binary file is not valid", binaryNote: "Binary file: it cannot be edited",
     sharedSkipped: "Binary files were left out of the link", filesAdded: "Files added",
-    addFiles: "Add files",
+    addFiles: "Add files", minimap: "Minimap",
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
@@ -253,6 +253,7 @@ registerCommand({ id: "edit.paste", title: "Paste", run: () => pasteFromClipboar
 registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAll(editor) });
 registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleSetting("light") });
 registerCommand({ id: "view.wrap", title: "Word wrap", key: "Alt+Z", inEditor: true, run: () => toggleSetting("wrap") });
+registerCommand({ id: "view.minimap", title: "Minimap", run: () => toggleSetting("minimap") });
 registerCommand({ id: "tools.format", title: "Format document", key: "Alt+Shift+F", inEditor: true,
   run: () => requestFormat(), enabled: () => engineReady && !busy && !!activeDoc });
 registerCommand({ id: "tools.lint", title: "Lint file", run: () => requestLint(),
@@ -341,6 +342,7 @@ addMenu({
     { id: "menu-appearance", label: "appearance", submenu: [
       { id: "menu-theme", label: "theme", command: "view.theme", toggle: "light" },
       { id: "menu-wrap", label: "wordWrap", keyHint: "Alt+Z", command: "view.wrap", toggle: "wrap" },
+      { id: "menu-minimap", label: "minimap", command: "view.minimap", toggle: "minimap" },
       { id: "toggle-primary", label: "togglePrimary", keyHint: "Ctrl+B", command: "view.primary", toggle: "primary" },
       { id: "toggle-secondary", label: "toggleSecondary", keyHint: "Alt+B", command: "view.secondary", toggle: "secondary" },
       { id: "toggle-panel", label: "togglePanel", keyHint: "Ctrl+J", command: "view.panel", toggle: "panel" },
@@ -480,6 +482,16 @@ defineToggle("light", { initial: systemLight, apply: (light) => {
 } });
 defineToggle("wrap", { initial: false, apply: (on) => {
   editorRef?.dispatch({ effects: wrapCell.reconfigure(on ? EditorView.lineWrapping : []) });
+} });
+// The minimap: a picture of the whole file at the editor's right edge (built after the editor).
+// Its variables are declared before the toggle, which may apply at once.
+let minimapEl = null;
+let minimapTimer = null;
+let minimapHeight = 0; // the height the drawn lines take, in CSS pixels
+defineToggle("minimap", { initial: true, apply: (on) => {
+  document.querySelector(".main-body")?.classList.toggle("minimap-on", on);
+  minimapEl?.toggleAttribute("hidden", !on);
+  scheduleMinimap();
 } });
 defineToggle("primary", { initial: true, apply: (on) => setRegionVisible("primary", on) });
 defineToggle("secondary", { initial: false, apply: (on) => setRegionVisible("secondary", on) });
@@ -720,6 +732,7 @@ const state0 = (asili = true) => EditorState.create({
       if (update.docChanged) {
         if (activeDoc) activeDoc.text = update.state.doc.toString();
         scheduleCheck();
+        scheduleMinimap();
         lintState.send("edit");
         scheduleTabs();
         if (findState.query) setTimeout(() => runFind(findState.query), 0);
@@ -735,6 +748,90 @@ const editor = new EditorView({
   parent: document.getElementById("editor"),
 });
 editorRef = editor;
+
+// The minimap: each line of the file as a thin bar (indent first, then its length), with the part of the
+// file that is in view outlined. A click or drag on it scrolls the editor.
+minimapEl = document.createElement("div");
+minimapEl.id = "minimap";
+minimapEl.className = "minimap";
+minimapEl.setAttribute("aria-hidden", "true");
+minimapEl.innerHTML = `<canvas></canvas><div class="minimap-view"></div>`;
+document.querySelector(".main-body")?.append(minimapEl);
+// The saved setting may have been applied before the element existed: apply it now.
+minimapEl.toggleAttribute("hidden", !isOn("minimap"));
+document.querySelector(".main-body")?.classList.toggle("minimap-on", isOn("minimap"));
+const minimapCanvas = minimapEl.querySelector("canvas");
+const minimapView = minimapEl.querySelector(".minimap-view");
+const MINIMAP_COLS = 120; // a line longer than this is drawn at full width
+const MINIMAP_PAD = 4;
+
+function scheduleMinimap() {
+  clearTimeout(minimapTimer);
+  minimapTimer = setTimeout(drawMinimap, 60);
+}
+
+function drawMinimap() {
+  minimapTimer = null;
+  if (!minimapEl || !editorRef || !isOn("minimap")) return;
+  const width = minimapEl.clientWidth;
+  const height = minimapEl.clientHeight;
+  if (!width || !height) return; // hidden (no document, or a binary file)
+  const doc = editorRef.state.doc;
+  const rowHeight = Math.min(2, height / doc.lines);
+  minimapHeight = rowHeight * doc.lines;
+  const dpr = window.devicePixelRatio || 1;
+  minimapCanvas.width = Math.round(width * dpr);
+  minimapCanvas.height = Math.round(height * dpr);
+  minimapCanvas.style.width = `${width}px`;
+  minimapCanvas.style.height = `${height}px`;
+  const ctx = minimapCanvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = document.body.classList.contains("theme-light") ? "#5b6472" : "#8a93a3";
+  const span = width - MINIMAP_PAD * 2;
+  for (let i = 1; i <= doc.lines; i += 1) {
+    const text = doc.line(i).text;
+    const indent = text.length - text.trimStart().length;
+    const length = text.trimEnd().length - indent;
+    if (length <= 0) continue;
+    const x = MINIMAP_PAD + (Math.min(indent, MINIMAP_COLS) / MINIMAP_COLS) * span;
+    const w = Math.max(1, (Math.min(length, MINIMAP_COLS) / MINIMAP_COLS) * span);
+    ctx.fillRect(x, (i - 1) * rowHeight, w, Math.max(1, rowHeight - 0.5));
+  }
+  updateMinimapView();
+}
+
+// The outline of the part in view, as a share of the whole file.
+function updateMinimapView() {
+  const sc = editorRef?.scrollDOM;
+  if (!sc || !minimapHeight || !isOn("minimap")) return;
+  const total = sc.scrollHeight || 1;
+  const top = (sc.scrollTop / total) * minimapHeight;
+  const view = Math.max(12, (sc.clientHeight / total) * minimapHeight);
+  minimapView.style.top = `${top}px`;
+  minimapView.style.height = `${view}px`;
+}
+
+// Click or drag on the minimap: the editor scrolls so the point is in the middle of its view.
+function scrollToMinimap(e) {
+  const sc = editorRef?.scrollDOM;
+  if (!sc || !minimapHeight) return;
+  const rect = minimapEl.getBoundingClientRect();
+  const share = Math.min(1, Math.max(0, (e.clientY - rect.top) / minimapHeight));
+  sc.scrollTop = share * (sc.scrollHeight || 1) - sc.clientHeight / 2;
+}
+let minimapDrag = false;
+minimapEl.addEventListener("pointerdown", (e) => {
+  minimapDrag = true;
+  minimapEl.setPointerCapture(e.pointerId);
+  scrollToMinimap(e);
+});
+minimapEl.addEventListener("pointermove", (e) => { if (minimapDrag) scrollToMinimap(e); });
+minimapEl.addEventListener("pointerup", () => { minimapDrag = false; });
+minimapEl.addEventListener("pointercancel", () => { minimapDrag = false; });
+editor.scrollDOM.addEventListener("scroll", updateMinimapView, { passive: true });
+window.addEventListener("resize", scheduleMinimap);
+new ResizeObserver(scheduleMinimap).observe(minimapEl);
 
 const outputEl = document.getElementById("output");
 const statusEl = document.getElementById("status");
@@ -1105,6 +1202,7 @@ function activate(d) {
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: d.text } });
   }
   persistSession();
+  scheduleMinimap();
   renderProblems([]);
   renderTabs();
   if (d.projectId) activeProjectId = d.projectId;
