@@ -189,7 +189,7 @@ registerCommand({ id: "edit.copy", title: "Copy", run: () => { editor.focus(); d
 registerCommand({ id: "edit.paste", title: "Paste", run: () => pasteFromClipboard() });
 registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAll(editor) });
 registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleTheme() });
-registerCommand({ id: "tools.format", title: "Format document", key: "Shift+Alt+F", inEditor: true,
+registerCommand({ id: "tools.format", title: "Format document", key: "Alt+Shift+F", inEditor: true,
   run: () => requestFormat(), enabled: () => engineReady && !busy });
 registerCommand({ id: "tools.lint", title: "Lint file", run: () => requestLint(),
   enabled: () => engineReady && !busy });

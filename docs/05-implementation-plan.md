@@ -36,7 +36,7 @@ flowchart LR
 | 10 | Confirm `pata-fmt` and `pata-lint` build for wasm; split features if not | Asili | PG-6, PG-7 | 2 | Done: both build for `wasm32-unknown-unknown` (`cargo check`) |
 | 11 | Wasm export `check(files)` with structured diagnostics | Asili | PG-3, PG-8 | 2 | In progress: `check(source)`, first slice |
 | 12 | Structured runtime errors from `run` and `runBundle` | Asili | PG-3 | 2 | Not started |
-| 13 | Wasm export `format(source)` | Asili | PG-6 | 2 | Done: Format document (Shift+Alt+F) in Tools |
+| 13 | Wasm export `format(source)` | Asili | PG-6 | 2 | Done: Format document (Alt+Shift+F) in Tools |
 | 14 | Wasm export `lint(files)` | Asili | PG-7 | 2 | Done for one file: Lint file in Tools; findings in Problems and the editor |
 | 15 | Wasm export `test(files)` | Asili | PG-9 | 2 | Not started |
 | 16 | Tool bar buttons, Matatizo and Majaribio panels, editor marks | asili-playground | PG-3, PG-6–9 | 2 | Not started |
