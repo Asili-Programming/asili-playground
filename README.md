@@ -9,7 +9,18 @@ below) that *hosts* the static assets (`index.html`, `main.js`, the wasm build, 
 programs), which is what actually runs the Asili source typed into the editor. No code is sent
 to a remote server; everything executes in your browser.
 
+## Hosted
+
+The playground runs on the Asili website at **https://asili-programming.github.io/playground/**.
+The site builds it from this repository and the wasm build of Asili's `main` on every push to the
+site's `main`, on a weekly schedule, and when this repository's `main` changes (the `notify-site`
+job in `.github/workflows/ci.yml` sends the signal). It accepts `?lugha=sw` or `?lugha=en` for the
+interface language.
+
 ## Build & run
+
+Two routes: the hosted page needs nothing; to run it yourself, build the wasm package and serve
+these files, either with any static server or with Asili itself.
 
 The wasm package is built from an [Asili](https://github.com/Asili-Programming/Asili) checkout, by default a sibling clone
 (`../Asili`; set `ASILI_DIR` to use another):
@@ -21,8 +32,11 @@ git clone https://github.com/Asili-Programming/Asili ../Asili
 # 1. Build the wasm package (needs wasm-pack: `cargo install wasm-pack`)
 ./build.sh
 
-# 2. Serve this directory with Asili itself
+# 2a. Serve this directory with Asili itself
 pata jenga --tenda
+
+# 2b. ...or with any static server, e.g.
+python3 -m http.server 8080
 
 # 3. Open http://127.0.0.1:8080/
 ```
@@ -35,8 +49,7 @@ wasm-pack build "$ASILI_DIR/driver/wasm" --target web --out-dir pkg --no-typescr
 ```
 
 which produces `pkg/asili_wasm.js` + `pkg/asili_wasm_bg.wasm`, then base64-encodes the `.wasm`
-into `pkg/asili_wasm_bg.wasm.b64` (see "Serving the wasm binary" below for why). `pkg/` is
-gitignored — build it locally, it isn't checked in.
+into `pkg/asili_wasm_bg.wasm.b64` (for Asili's own server; see below). `pkg/` is gitignored.
 
 `pata.toml` + `src/kuu.as` make this directory itself a small Asili project: a static file
 server built on the same `mkondo_tumikia_http` framing layer as
@@ -46,33 +59,43 @@ language it's demonstrating. `pata jenga --tenda` builds and runs it, listening 
 
 ### Serving the wasm binary
 
-Asili's `soma_faili` (file read) only handles valid-UTF-8 text — there's no raw-bytes file API
-in the standard library yet — so `src/kuu.as` can't serve the `.wasm` binary directly. `build.sh`
-works around this by base64-encoding it to `pkg/asili_wasm_bg.wasm.b64` at build time; `main.js`
-fetches that text file, decodes it back to bytes with `atob`, and passes the bytes straight to
-the wasm-bindgen `init()` glue.
+A normal web server sends `pkg/asili_wasm_bg.wasm` as it is. Asili's `soma_faili` (file read)
+only handles valid-UTF-8 text, so `src/kuu.as` cannot serve the binary. `worker.js` tries the
+binary first and falls back to the base64 text copy, so both kinds of server work without
+configuration.
+
+### Editor dependencies
+
+`vendor/codemirror.js` is one committed ES module with CodeMirror 6, so the page loads nothing
+from a third-party server. Regenerate it only when a pinned version changes:
+
+```bash
+cd vendor-src && npm ci && npm run build
+```
+
+The versions are pinned in `vendor-src/package.json`. Commit the regenerated `vendor/codemirror.js`.
 
 ## What it does
 
-- `pata.toml` / `src/kuu.as` — a static file server (`mkondo_tumikia_http`, same pattern as
-  [examples/http_server](https://github.com/Asili-Programming/Asili/tree/develop/examples/http_server)) that serves the files below. Run it with
-  `pata jenga --tenda`.
-- `index.html` / `style.css` — page layout (editor pane + output pane).
-- `main.js` — loads the wasm package, wires up CodeMirror 6 (via `esm.sh`, no npm/bundler step),
-  and calls the wasm build's exported `run(source)` on click (or Ctrl/Cmd+Enter). `run`
-  compiles the program to bytecode and then to a wasm module of its own (Asili's `nguvu`
-  backend), which `main.js`'s `asili_nguvu_load` instantiates beside the build — so programs
-  run as native wasm code, not interpreted. Output is
-  captured by temporarily wrapping `console.log`/`console.error`, which is what `driver/wasm`'s
-  `wasm-browser` I/O shim writes to (see
+- `index.html` / `style.css` / `favicon.svg` — the page: editor pane, output pane, notices.
+- `main.js` — the page. Chooses the interface language (`?lugha=`), wires up the CodeMirror 6
+  editor from `vendor/codemirror.js`, and sends each program to the worker. Shows the states:
+  loading, ready, running, stopped, engine failed to load (with a retry), and unsupported browser.
+- `worker.js` — the engine. Loads the wasm build once and runs programs in a Web Worker, so a
+  long run never freezes the page. **Stop** terminates the worker, which ends the run; the next
+  run starts a fresh worker. Programs run as native code: the build compiles each one to a wasm
+  module of its own (Asili's `nguvu` backend), which `worker.js`'s `asili_nguvu_load` instantiates
+  beside the build. Output is sent back with `console.log`/`console.error` messages, which is what
+  `driver/wasm`'s `wasm-browser` I/O shim writes to (see
   [core/evaluator/src/platform.rs](https://github.com/Asili-Programming/Asili/blob/develop/core/evaluator/src/platform.rs)).
-- `samples/` — a few short, self-contained `.as` programs (listed in `samples/manifest.json`)
-  shown in the sample picker.
+- `samples/` — a few short, self-contained `.as` programs (listed in `samples/manifest.json`,
+  with an English label for `?lugha=en`) shown in the sample picker.
 - The editor uses a minimal `StreamLanguage` syntax-highlighting mode for Asili (keywords/types/
-  strings/comments) — not a real parser, just enough for readability. Its keyword and type lists
-  (between `const KEYWORDS` and `// </generated>` in `main.js`) are generated from Asili's
-  compiler; CI checks them against Asili's `develop`. To regenerate, from the Asili checkout:
+  strings/comments), not a real parser. Its keyword and type lists (between `const KEYWORDS` and
+  `// </generated>` in `main.js`) are generated from Asili's compiler; CI checks them against
+  Asili's `develop`. To regenerate, from the Asili checkout:
   `ASILI_PLAYGROUND_DIR=<this repo> ASILI_GOLDEN=write cargo test -p pata-core --test editor_word_lists`.
+- Interface strings for both languages are in one table at the top of `main.js` (`STRINGS`).
 
 ## Limitations / Baadaye (next steps)
 

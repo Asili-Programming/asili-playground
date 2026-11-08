@@ -25,6 +25,8 @@ body {
 
 header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
@@ -46,6 +48,7 @@ header h1 span {
 
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
 }
@@ -179,3 +182,19 @@ footer a {
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* Reserve the header's space before the sample list and the status text arrive, so the editor
+   does not move when they do (layout stability). */
+#sample-picker { width: 13rem; max-width: 100%; }
+.header-actions { min-height: 2.4rem; }
+#editor { min-height: 16rem; }
+.status { width: 9rem; min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Added for the site integration: state notices, stop button, language switch. */
+[hidden] { display: none !important; }
+#editor-pane { position: relative; }
+.notice { position: absolute; left: 0; right: 0; top: 0; z-index: 5; margin: 0; padding: 10px 16px; background: #fff4e0; color: #5a3a10; border-bottom: 1px solid #e8d3ad; font-size: 0.95rem; }
+.notice[data-state="failed"], .notice[data-state="unsupported"] { background: #fbe6e6; color: #6b1d1d; border-color: #e7b9b9; }
+.notice button { margin-left: 8px; }
+button.danger { background: #8a2b2b; color: #fff; border: 0; }
+a.switch { color: inherit; border: 1px solid currentColor; border-radius: 6px; padding: 3px 10px; text-decoration: none; font-size: 0.9rem; }
