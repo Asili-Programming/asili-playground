@@ -274,37 +274,38 @@ addStatusItem({ id: "lugha-switch", order: 90, optional: true, render(slot, t) {
   slot.append(link);
 } });
 
+// The Explorer view: the workspace is a section of it, above the file list (as in VS Code).
 addSidebarSection("primary", {
-  id: "project", title: "projectSection", order: 20,
+  id: "files", title: "explorer", order: 10,
   render(container, t) {
     container.innerHTML = `
-      <div class="sidebar-row">
-        <input id="project-name" type="text" placeholder="${t("projectName")}" aria-label="${t("projectName")}" />
-        <button id="project-new-btn" type="button">${t("newProject")}</button>
-      </div>
-      <div class="sidebar-row">
-        <button id="project-save-btn" type="button">${t("saveProject")}</button>
-        <button id="project-export-btn" type="button">${t("exportProject")}</button>
-        <button id="project-import-btn" type="button">${t("importProject")}</button>
-        <input id="import-file" type="file" accept=".json,application/json" hidden />
-      </div>
-      <div class="sidebar-row">
-        <button id="project-rename-btn" type="button">${t("projectRename")}</button>
-        <button id="project-delete-btn" type="button">${t("projectDelete")}</button>
-      </div>
-      <p id="project-note" class="sidebar-note" role="status"></p>
-      <div id="undo-note" class="undo-note" role="status" hidden></div>`;
-  },
-});
-addSidebarSection("primary", {
-  id: "files", title: "explorer", order: 30,
-  render(container, t) {
-    container.innerHTML = `
-      <ul id="file-list" class="open-files" aria-label="${t("filesSection")}"></ul>
-      <div class="sidebar-row">
-        <input id="file-name" type="text" placeholder="${t("fileName")}" aria-label="${t("fileName")}" />
-        <button id="file-create-btn" type="button">${t("newFile")}</button>
-      </div>`;
+      <section class="explorer-section" aria-label="${t("projectSection")}">
+        <h3 class="explorer-heading">${t("projectSection")}</h3>
+        <div class="sidebar-row">
+          <input id="project-name" type="text" placeholder="${t("projectName")}" aria-label="${t("projectName")}" />
+          <button id="project-new-btn" type="button">${t("newProject")}</button>
+        </div>
+        <div class="sidebar-row">
+          <button id="project-save-btn" type="button">${t("saveProject")}</button>
+          <button id="project-export-btn" type="button">${t("exportProject")}</button>
+          <button id="project-import-btn" type="button">${t("importProject")}</button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden />
+        </div>
+        <div class="sidebar-row">
+          <button id="project-rename-btn" type="button">${t("projectRename")}</button>
+          <button id="project-delete-btn" type="button">${t("projectDelete")}</button>
+        </div>
+        <p id="project-note" class="sidebar-note" role="status"></p>
+        <div id="undo-note" class="undo-note" role="status" hidden></div>
+      </section>
+      <section class="explorer-section" aria-label="${t("filesSection")}">
+        <h3 class="explorer-heading">${t("filesSection")}</h3>
+        <ul id="file-list" class="open-files"></ul>
+        <div class="sidebar-row">
+          <input id="file-name" type="text" placeholder="${t("fileName")}" aria-label="${t("fileName")}" />
+          <button id="file-create-btn" type="button">${t("newFile")}</button>
+        </div>
+      </section>`;
   },
 });
 addSidebarSection("secondary", {

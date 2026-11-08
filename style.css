@@ -421,3 +421,7 @@ body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
 /* ---- The main area: a tab header and a view, like the panels ------------------------------- */
 .main-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .tabbar .doc-tab { font-size: 0.8rem; padding: 0.45rem 0.8rem; }
+
+/* ---- Explorer sections: the workspace and the files, in one view ---------------------------- */
+.explorer-section { border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+.explorer-heading { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0.6rem 0.9rem 0.2rem; font-weight: 600; }
