@@ -192,7 +192,23 @@ registerCommand({ id: "project.saveAsProject", title: "Save sample as workspace"
   enabled: () => !!activeDoc && !activeDoc.projectId });
 registerCommand({ id: "project.export", title: "Export workspace", run: () => exportActiveProject(),
   enabled: () => !!activeProject() });
-registerCommand({ id: "project.import", title: "Import workspace", run: () => document.getElementById("import-file").click() });
+registerCommand({
+  id: "project.import",
+  title: "Import workspace",
+  run: () => {
+    let input = document.getElementById("import-file");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.id = "import-file";
+      input.accept = ".json,application/json";
+      input.hidden = true;
+      document.body.append(input);
+    }
+    input.value = "";
+    input.click();
+  },
+});
 registerCommand({ id: "file.new", title: "New file", key: "Alt+N", inEditor: true, inInput: true,
   run: () => createUntitledFile() });
 registerCommand({ id: "file.close", title: "Close tab", key: "Alt+W", inEditor: true, inInput: true,
