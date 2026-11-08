@@ -6,7 +6,7 @@ import { encodeShare, decodeShare } from "./share.js";
 import {
   ENTRY, newProject, newId, projectFromSample, addFile, deleteFile, fileStatus, importProject,
   exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf, renameFile, ProjectError,
-  foldersOf, folderOf, renameFolder, deleteFolder, moveFile, addFolder,
+  foldersOf, folderOf, renameFolder, deleteFolder, moveFile, addFolder, syncConfig, programFiles, isConfig,
 } from "./project.js";
 import {
   addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
@@ -465,14 +465,14 @@ function requestCheck() {
   checkSeq += 1;
   // The other modules of the active project, so `leta <module>` is not reported as unknown.
   const p = activeDoc?.projectId ? projectById(activeDoc.projectId) : null;
-  const modules = p ? Object.keys(p.files).filter((f) => f !== activeDoc.file).map(moduleOf) : [];
+  const modules = p ? programFiles(p).filter((f) => f !== activeDoc.file).map(moduleOf) : [];
   worker.postMessage({ type: "check", seq: checkSeq, source: editor.state.doc.toString(), modules });
   if (p) {
-    for (const file of Object.keys(p.files)) {
+    for (const file of programFiles(p)) {
       if (file === activeDoc.file) continue;
       worker.postMessage({
         type: "check", seq: -1, key: `p:${p.id}:${file}`, source: liveText(p, file),
-        modules: Object.keys(p.files).filter((f) => f !== file).map(moduleOf),
+        modules: programFiles(p).filter((f) => f !== file).map(moduleOf),
       });
     }
   }
@@ -994,6 +994,8 @@ function note(text, kind = "ok") {
 }
 
 function persistProjects() {
+  // The workspace file at the root is written from the workspace's state before each save.
+  for (const p of projects) syncConfig(p);
   if (saveProjects(projects)) return true;
   note(T.storageOff, "error");
   return false;
@@ -1168,13 +1170,14 @@ function fileRow(p, file, depth) {
   li.innerHTML = fileIcon(file);
   const label = document.createElement("span");
   label.className = "tree-name";
-  label.textContent = moduleOf(file) + ".as";
+  label.textContent = isConfig(file) ? file : `${moduleOf(file)}.as`;
   label.title = file;
   const meta = document.createElement("span");
   meta.className = "file-meta";
   const status = fileStatus(p, file, liveText(p, file)) === "modified" ? T.stModified : T.stSaved;
   meta.textContent = `${status}${open?.error ? ` · ${T.stErrors}` : ""}`;
   if (file === ENTRY) label.classList.add("entry");
+  if (isConfig(file)) li.classList.add("config");
   li.append(label, meta);
   li.addEventListener("click", () => openProjectFile(p, file));
   li.addEventListener("dblclick", () => startRename(p, file, li));
@@ -1832,7 +1835,7 @@ function showFileMenu(x, y, p, file, li) {
   };
   add(T.rename, () => startRename(p, file, li));
   add(T.duplicate, () => duplicateFile(p, file));
-  if (file !== ENTRY) add(T.delete, () => removeFile(p, file), T.confirmDelete);
+  if (file !== ENTRY && !isConfig(file)) add(T.delete, () => removeFile(p, file), T.confirmDelete);
   document.body.append(menu);
   fileMenu = menu;
   const dismiss = (e) => {

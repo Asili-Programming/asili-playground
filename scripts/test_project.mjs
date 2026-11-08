@@ -18,6 +18,7 @@ assert.equal(P.fileStatus(p, "kuu.as", p.files["kuu.as"] + "x"), "modified");
 
 // Export and import round trip.
 P.addFile(p, "takwimu", "kazi b() {}\n");
+P.syncConfig(p);
 const back = P.importProject(P.exportProject(p), "2026-11-09T00:00:00Z");
 assert.deepEqual(back.files, p.files);
 assert.equal(back.name, "Hesabu");
@@ -49,6 +50,8 @@ assert.equal(P.uniqueName("Hesabu", ["Mengine"]), "Hesabu");
 
 // A project's bundle names modules by file name without .as.
 assert.deepEqual(Object.keys(P.bundleOf(p)).sort(), ["kuu", "takwimu"]);
+assert.equal(keyOf(() => P.deleteFile(p, "asili-workspace.json")), "entryDelete");
+assert.equal(P.configText(p).includes('"name": "Hesabu"'), true);
 
 // Folders: a file has a path; the module name is the base name, and base names are unique.
 P.addFolder(p, "lib");
@@ -75,7 +78,7 @@ assert.deepEqual(keep.folders, ["lib"]);
 // A version 1 workspace (flat files) still imports.
 const v1 = P.importProject(JSON.stringify({ schema: "asili-project", version: 1, name: "Zamani", files: { "kuu.as": "x" } }));
 assert.equal(v1.version, 2);
-assert.deepEqual(Object.keys(v1.files), ["kuu.as"]);
+assert.deepEqual(Object.keys(v1.files).sort(), ["asili-workspace.json", "kuu.as"]);
 P.deleteFolder(p, "lib");
 
 // Storage: a list round trip, and a refusal (not an error) when storage is unavailable.

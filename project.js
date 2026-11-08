@@ -5,6 +5,9 @@
 export const SCHEMA = "asili-project";
 export const VERSION = 2;
 export const ENTRY = "kuu.as";
+// The workspace's configuration file, at its root (docs/06-workspaces.md, "The workspace file").
+export const CONFIG_FILE = "asili-workspace.json";
+export const isConfig = (file) => file === CONFIG_FILE;
 export const LIMITS = { fileBytes: 256 * 1024, projectBytes: 2 * 1024 * 1024, files: 32, folders: 64 };
 
 const SEGMENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -105,7 +108,30 @@ export function foldersOf(project) {
 // The base names in use, and the file that uses each: a module name must be unique.
 function clashWith(project, file) {
   const name = moduleOf(file);
-  return Object.keys(project.files).find((other) => other !== file && moduleOf(other) === name) ?? null;
+  return programFiles(project).find((other) => other !== file && moduleOf(other) === name) ?? null;
+}
+
+// The Asili files of the program: every file except the configuration file.
+export function programFiles(project) {
+  return Object.keys(project.files).filter((f) => !isConfig(f));
+}
+
+// The configuration file's text, from the workspace's state.
+export function configText(project) {
+  return JSON.stringify({
+    schema: "asili-workspace",
+    version: 1,
+    name: project.name,
+    entry: "kuu.as",
+    folders: foldersOf(project),
+    settings: {},
+  }, null, 2) + "\n";
+}
+
+// Write the configuration file into the workspace (it is part of the files, at the root).
+export function syncConfig(project) {
+  project.files[CONFIG_FILE] = configText(project);
+  return project;
 }
 
 function checkUnique(project, file) {
@@ -137,7 +163,7 @@ export function addFolder(project, path) {
 }
 
 export function deleteFile(project, file) {
-  if (file === ENTRY) throw new ProjectError("entryDelete");
+  if (file === ENTRY || isConfig(file)) throw new ProjectError("entryDelete");
   if (!(file in project.files)) throw new ProjectError("fileMissing", file);
   delete project.files[file];
 }
@@ -152,7 +178,7 @@ export function deleteFolder(project, folder) {
 
 // Rename a file within its folder: the base name changes, the folder does not.
 export function renameFile(project, file, newName) {
-  if (file === ENTRY) throw new ProjectError("entryRename");
+  if (file === ENTRY || isConfig(file)) throw new ProjectError("entryRename");
   if (!(file in project.files)) throw new ProjectError("fileMissing", file);
   const next = pathFor(folderOf(file) ? `${folderOf(file)}/${newName}` : newName);
   if (next === file) return file;
@@ -169,7 +195,7 @@ export function renameFile(project, file, newName) {
 
 // Move a file into another folder ("" is the root). The base name stays.
 export function moveFile(project, file, folder) {
-  if (file === ENTRY) throw new ProjectError("entryMove");
+  if (file === ENTRY || isConfig(file)) throw new ProjectError("entryMove");
   if (!(file in project.files)) throw new ProjectError("fileMissing", file);
   const target = String(folder ?? "").replace(/\/+$/, "");
   if (target && !foldersOf(project).includes(target)) throw new ProjectError("folderMissing", target);
@@ -232,10 +258,14 @@ export function importProject(text, now = new Date().toISOString()) {
   }
   const names = Object.keys(data.files);
   if (names.length === 0) throw new ProjectError("noFiles");
-  if (names.length > LIMITS.files) throw new ProjectError("tooManyFiles");
+  if (names.filter((n) => !isConfig(n)).length > LIMITS.files) throw new ProjectError("tooManyFiles");
   if (!(ENTRY in data.files)) throw new ProjectError("noEntry");
   const files = {};
   for (const name of names) {
+    if (isConfig(name)) {
+      if (typeof data.files[name] !== "string") throw new ProjectError("notText", name);
+      continue;
+    }
     if (!name.endsWith(".as")) throw new ProjectError("notAsiliFile", name);
     const file = name === ENTRY ? ENTRY : pathFor(name);
     if (file !== name) throw new ProjectError("badName", name);
@@ -253,17 +283,27 @@ export function importProject(text, now = new Date().toISOString()) {
     created: typeof data.created === "string" ? data.created : now,
     updated: now,
   };
+  // The configuration file gives the workspace's name and folders, when it reads.
+  if (files[CONFIG_FILE]) {
+    try {
+      const config = JSON.parse(files[CONFIG_FILE]);
+      if (typeof config.name === "string" && config.name.trim()) project.name = config.name.trim();
+      if (Array.isArray(config.folders)) project.folders = config.folders.filter((f) => typeof f === "string");
+    } catch {
+      // A broken configuration file is kept as text; the name and folders come from the export.
+    }
+  }
   const modules = new Map();
-  for (const file of Object.keys(files)) {
+  for (const file of programFiles(project)) {
     const module = moduleOf(file);
     if (modules.has(module)) throw new ProjectError("nameTaken", `${module} (${modules.get(module)})`);
     modules.set(module, file);
   }
   if (sizeOf(project) > LIMITS.projectBytes) throw new ProjectError("projectTooBig");
-  return project;
+  return syncConfig(project);
 }
 
 // The modules a workspace run passes to runBundle: module name -> source.
 export function bundleOf(project) {
-  return Object.fromEntries(Object.entries(project.files).map(([file, text]) => [moduleOf(file), text]));
+  return Object.fromEntries(programFiles(project).map((file) => [moduleOf(file), project.files[file]]));
 }

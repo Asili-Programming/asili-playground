@@ -477,3 +477,4 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 #file-list .tree-row.root { font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.04em; padding-left: 0.4rem; min-height: 1.8rem; }
 #file-list .tree-row.root .ico-folder { color: var(--muted); }
+#file-list .tree-row.config .ico { color: #9aa2b5; }
