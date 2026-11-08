@@ -35,6 +35,14 @@ jobs:
           ASILI_PLAYGROUND_DIR: ${{ github.workspace }}
         run: cargo test -p pata-core --test editor_word_lists
 
+  samples:
+    name: Sample manifest is generated
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: samples/manifest.json matches the sample files
+        run: python3 scripts/gen_samples.py --check
+
   # Tell the site to rebuild when the playground changes on main (site.yml listens for this).
   # Needs the SITE_DISPATCH_TOKEN secret (a token allowed to dispatch to the site repository);
   # without it the job is skipped and the site rebuilds on its weekly schedule instead.

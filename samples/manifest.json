@@ -1,5 +1,20 @@
 [
-  { "id": "karibu", "label": "Karibu (Fibonacci)", "label_en": "Welcome (Fibonacci)", "file": "karibu.as" },
-  { "id": "sifa", "label": "Sifa na Umbo (Traits & Structs)", "label_en": "Traits and structs", "file": "sifa.as" },
-  { "id": "makosa", "label": "Kushughulikia Makosa (Result)", "label_en": "Handling errors (Result)", "file": "makosa.as" }
+  {
+    "id": "karibu",
+    "file": "karibu.as",
+    "label": "Karibu (Fibonacci)",
+    "label_en": "Welcome (Fibonacci)"
+  },
+  {
+    "id": "makosa",
+    "file": "makosa.as",
+    "label": "Kushughulikia Makosa (Result)",
+    "label_en": "Handling errors (Result)"
+  },
+  {
+    "id": "sifa",
+    "file": "sifa.as",
+    "label": "Sifa na Umbo (Traits & Structs)",
+    "label_en": "Traits and structs"
+  }
 ]

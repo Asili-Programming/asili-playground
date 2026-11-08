@@ -1,3 +1,5 @@
+# sw: Sifa na Umbo (Traits & Structs)
+# en: Traits and structs
 leta matumizi
 
 sifa Inayoonyeshwa {

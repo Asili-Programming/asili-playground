@@ -88,8 +88,10 @@ The versions are pinned in `vendor-src/package.json`. Commit the regenerated `ve
   beside the build. Output is sent back with `console.log`/`console.error` messages, which is what
   `driver/wasm`'s `wasm-browser` I/O shim writes to (see
   [core/evaluator/src/platform.rs](https://github.com/Asili-Programming/Asili/blob/develop/core/evaluator/src/platform.rs)).
-- `samples/` — a few short, self-contained `.as` programs (listed in `samples/manifest.json`,
-  with an English label for `?lugha=en`) shown in the sample picker.
+- `samples/` — short, self-contained `.as` programs shown in the sample picker. Each declares its
+  label in its first lines (`# sw: <label>`, and optionally `# en: <label>` for `?lugha=en`).
+  `samples/manifest.json` is generated from those files: after adding or relabelling a sample, run
+  `python3 scripts/gen_samples.py` and commit the result. CI fails if it is stale.
 - The editor uses a minimal `StreamLanguage` syntax-highlighting mode for Asili (keywords/types/
   strings/comments), not a real parser. Its keyword and type lists (between `const KEYWORDS` and
   `// </generated>` in `main.js`) are generated from Asili's compiler; CI checks them against
