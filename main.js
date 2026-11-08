@@ -8,9 +8,10 @@ import {
   exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf,
 } from "./project.js";
 import {
-  addMenu, addToolbarItem, addSidebarSection, addPanel, addStatusItem, renderShell, setBrand,
+  addMenu, addToolbarItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
   showPanel, setRegionVisible, regionVisible, refreshMenus,
 } from "./layout.js";
+import { registerCommand, runCommand, installKeys, openPalette } from "./commands.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
@@ -53,6 +54,8 @@ const STRINGS = {
     savedNote: "Mradi umehifadhiwa", importedNote: "Mradi umeingizwa", exportedNote: "Mradi umehamishwa",
     storageOff: "Hifadhi haipatikani kwenye kivinjari hiki: mradi hautabaki", importFailed: "Kuingiza kumeshindikana",
     dirtyWarn: "Mabadiliko hayajahifadhiwa", menuProject: "Mradi", fileNew: "Mradi mpya",
+    activityBar: "Upau wa vitendo", explorer: "Faili", board: "Bodi pepe", problems: "Matatizo",
+    menuPalette: "Amri",
   },
   en: {
     title: "Asili — Playground",
@@ -81,6 +84,8 @@ const STRINGS = {
     savedNote: "Project saved", importedNote: "Project imported", exportedNote: "Project exported",
     storageOff: "Storage is not available in this browser: the project will not be kept", importFailed: "Import failed",
     dirtyWarn: "Unsaved changes", menuProject: "Project", fileNew: "New project",
+    activityBar: "Activity bar", explorer: "Explorer", board: "Board", problems: "Problems",
+    menuPalette: "Commands",
   },
 };
 const T = STRINGS[lang];
@@ -105,20 +110,49 @@ setBrand({ logo: "logo-mark.svg", title: "Asili", subtitle: "subtitle" });
 const isEmbed = new URLSearchParams(location.search).get("embed") === "1";
 document.body.classList.toggle("embed", isEmbed);
 
+// Commands are registered once; the menus, the palette and the keys all run them.
+registerCommand({ id: "palette.open", title: "Command palette", key: ["Ctrl+Shift+P", "F1"],
+  inEditor: true, inInput: true, run: () => openPalette() });
+registerCommand({ id: "project.new", title: "New project", run: () => newProjectFromInput() });
+registerCommand({ id: "project.save", title: "Save project", key: "Ctrl+S", inEditor: true, inInput: true,
+  run: () => saveActiveProject(), enabled: () => !!activeDoc?.projectId });
+registerCommand({ id: "project.saveAsProject", title: "Save sample as project", run: () => saveSampleAsProject(),
+  enabled: () => !!activeDoc && !activeDoc.projectId });
+registerCommand({ id: "project.export", title: "Export project", run: () => exportActiveProject(),
+  enabled: () => !!activeProject() });
+registerCommand({ id: "project.import", title: "Import project", run: () => document.getElementById("import-file").click() });
+registerCommand({ id: "file.new", title: "New file", key: "Ctrl+N", inEditor: true,
+  run: () => { setRegionVisible("primary", true); document.getElementById("file-name")?.focus(); } });
+registerCommand({ id: "file.close", title: "Close tab", key: "Ctrl+W", inEditor: true,
+  run: () => closeDoc(activeDoc), enabled: () => docs.length > 1 });
+registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
+registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEditor: true, inInput: true,
+  run: () => run(), enabled: () => engineReady && !busy });
+registerCommand({ id: "run.stop", title: "Stop", key: "Shift+F5", inEditor: true, inInput: true,
+  run: () => stop(), enabled: () => busy });
+registerCommand({ id: "view.primary", title: "Toggle primary sidebar", key: "Ctrl+B", inEditor: true,
+  run: () => setRegionVisible("primary", !regionVisible("primary")) });
+registerCommand({ id: "view.secondary", title: "Toggle secondary sidebar (Board)", key: "Alt+B", inEditor: true,
+  run: () => setRegionVisible("secondary", !regionVisible("secondary")) });
+registerCommand({ id: "view.panel", title: "Toggle bottom panel", key: "Ctrl+J", inEditor: true,
+  run: () => setRegionVisible("panel", !regionVisible("panel")) });
+registerCommand({ id: "view.problems", title: "Show problems", key: "Ctrl+Shift+M", inEditor: true,
+  run: () => { setRegionVisible("panel", true); showPanel("problems"); } });
+registerCommand({ id: "view.explorer", title: "Focus explorer", key: "Ctrl+Shift+E", inEditor: true,
+  run: () => { setRegionVisible("primary", true); document.getElementById("file-list")?.focus(); } });
+registerCommand({ id: "help.wiki", title: "Asili wiki",
+  run: () => window.open("https://github.com/Asili-Programming/Asili/wiki", "_blank", "noopener") });
+
 addMenu({
   id: "faili", label: "menuFile", order: 10, optional: true,
   items: [
-    { id: "menu-project-new", label: "newProject", run: () => newProjectFromInput() },
-    { id: "menu-project-save", label: "saveProject", run: () => saveActiveProject(),
-      enabled: () => !!activeDoc?.projectId },
-    { id: "menu-project-save-as", label: "saveAsProject", run: () => saveSampleAsProject(),
-      enabled: () => !!activeDoc && !activeDoc.projectId },
-    { id: "menu-project-export", label: "exportProject", run: () => exportActiveProject(),
-      enabled: () => !!activeProject() },
-    { id: "menu-project-import", label: "importProject", run: () => document.getElementById("import-file").click() },
-    { id: "share-btn", label: "share", optional: true, run: () => shareCurrent() },
-    { id: "close-tab-btn", label: "closeTab", optional: true,
-      run: () => closeDoc(activeDoc), enabled: () => docs.length > 1 },
+    { id: "menu-project-new", label: "newProject", command: "project.new" },
+    { id: "menu-project-save", label: "saveProject", command: "project.save" },
+    { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
+    { id: "menu-project-export", label: "exportProject", command: "project.export" },
+    { id: "menu-project-import", label: "importProject", command: "project.import" },
+    { id: "share-btn", label: "share", optional: true, command: "share.link" },
+    { id: "close-tab-btn", label: "closeTab", optional: true, command: "file.close" },
   ],
 });
 addMenu({
@@ -131,28 +165,30 @@ addMenu({
 addMenu({
   id: "endesha", label: "menuRun", order: 30,
   items: [
-    { id: "menu-run-btn", label: "run", run: () => run(), enabled: () => engineReady && !busy },
-    { id: "menu-stop-btn", label: "stop", run: () => stop(), enabled: () => busy },
+    { id: "menu-run-btn", label: "run", command: "run.start" },
+    { id: "menu-stop-btn", label: "stop", command: "run.stop" },
   ],
 });
 addMenu({
   id: "mwonekano", label: "menuView", order: 40, optional: true,
   items: [
-    { id: "toggle-primary", label: "togglePrimary",
-      run: () => setRegionVisible("primary", !regionVisible("primary")) },
-    { id: "toggle-secondary", label: "toggleSecondary",
-      run: () => setRegionVisible("secondary", !regionVisible("secondary")) },
-    { id: "toggle-panel", label: "togglePanel",
-      run: () => setRegionVisible("panel", !regionVisible("panel")) },
+    { id: "toggle-primary", label: "togglePrimary", command: "view.primary" },
+    { id: "toggle-secondary", label: "toggleSecondary", command: "view.secondary" },
+    { id: "toggle-panel", label: "togglePanel", command: "view.panel" },
+    { id: "menu-palette", label: "menuPalette", command: "palette.open" },
   ],
 });
 addMenu({
   id: "msaada", label: "menuHelp", order: 50, optional: true,
   items: [
-    { id: "wiki-link", label: "wiki",
-      run: () => window.open("https://github.com/Asili-Programming/Asili/wiki", "_blank", "noopener") },
+    { id: "wiki-link", label: "wiki", command: "help.wiki" },
   ],
 });
+
+addActivity({ id: "act-explorer", title: "explorer", icon: "📁", order: 10, run: () => runCommand("view.explorer") });
+addActivity({ id: "act-board", title: "board", icon: "🔌", order: 20, run: () => runCommand("view.secondary") });
+addActivity({ id: "act-problems", title: "problems", icon: "⚠", order: 30, run: () => runCommand("view.problems") });
+addActivity({ id: "act-palette", title: "menuPalette", icon: "⌘", order: 40, run: () => runCommand("palette.open") });
 
 addToolbarItem({ id: "run-btn", label: "run", className: "primary", order: 10,
   run: () => run(), enabled: () => engineReady && !busy });
@@ -836,6 +872,7 @@ function renderProjectSection() {
 function renderFiles() {
   const list = document.getElementById("file-list");
   if (!list) return;
+  list.tabIndex = -1;
   const p = activeProject();
   list.replaceChildren();
   if (!p) return;
@@ -990,17 +1027,8 @@ clearBtn.addEventListener("click", () => {
 runBtn.addEventListener("click", run);
 stopBtn.addEventListener("click", stop);
 
-// Ctrl/Cmd+Enter runs; Ctrl/Cmd+S saves the active project.
-window.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    e.preventDefault();
-    run();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-    e.preventDefault();
-    saveActiveProject();
-  }
-});
+// Keys come from the command registry (commands.js).
+installKeys(window);
 
 // ---- Start ----------------------------------------------------------------------------------
 stopBtn.hidden = true;

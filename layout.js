@@ -6,11 +6,24 @@
 // cannot silently replace each other. After rendering, entries can be shown, hidden or disabled at
 // run time (setRegionVisible, refreshMenus, showPanel).
 
+import { getCommand, isEnabled, runCommand } from "./commands.js";
+
 let brand = { logo: "", title: "Asili", subtitle: "" };
+
+// A menu or palette item runs its own `run`, or the command it names; `enabled` likewise.
+function actionOf(item) {
+  return item.run ?? (item.command ? () => runCommand(item.command) : null);
+}
+function enabledOf(item) {
+  if (item.enabled) return item.enabled;
+  const command = item.command ? getCommand(item.command) : null;
+  return command ? () => isEnabled(command) : null;
+}
 
 const registry = {
   menus: new Map(),
   toolbar: new Map(),
+  activity: new Map(),
   sections: { primary: new Map(), secondary: new Map() },
   panels: new Map(),
   status: new Map(),
@@ -34,6 +47,9 @@ export function setBrand(next) { brand = { ...brand, ...next }; }
 
 // menu: { id, label (string-table key), order, items: [{ id, label, run, enabled?, optional? }] }
 export function addMenu(menu) { add(registry.menus, menu, "menu"); }
+
+// activity bar button (the far-left strip): { id, title (key), icon, order, run, enabled? }
+export function addActivity(item) { add(registry.activity, item, "activity item"); }
 
 // toolbar button, shown on the right of the menu bar: { id, label, run, order, enabled?, className? }
 export function addToolbarItem(item) { add(registry.toolbar, item, "toolbar item"); }
@@ -83,9 +99,10 @@ export function renderShell(root, { t, embed = false }) {
     const items = el("div", { class: "menu-items" });
     for (const item of menu.items.filter(keep)) {
       const button = el("button", { id: item.id, "data-menu-item": item.id }, t(item.label));
+      const run = actionOf(item);
       button.addEventListener("click", () => {
         details.open = false;
-        item.run?.();
+        run?.();
       });
       items.append(button);
     }
@@ -100,7 +117,15 @@ export function renderShell(root, { t, embed = false }) {
   }
   root.append(menubar);
 
-  // Workbench: primary sidebar | main | secondary sidebar.
+  // Activity bar, then the workbench: primary sidebar | main | secondary sidebar.
+  const bodyRow = el("div", { class: "body-row" });
+  const activity = el("nav", { class: "activitybar", "aria-label": t("activityBar") });
+  for (const item of [...registry.activity.values()].filter(keep).sort(byOrder)) {
+    const button = el("button", { id: item.id, class: "activity-btn", title: t(item.title), "aria-label": t(item.title) }, item.icon ?? "•");
+    button.addEventListener("click", () => item.run?.());
+    activity.append(button);
+  }
+  bodyRow.append(activity);
   const workbench = el("div", { class: "workbench" });
   workbench.append(sidebar("primary", "aside", keep, t));
 
@@ -114,7 +139,8 @@ export function renderShell(root, { t, embed = false }) {
   workbench.append(main);
 
   workbench.append(sidebar("secondary", "aside", keep, t));
-  root.append(workbench);
+  bodyRow.append(workbench);
+  root.append(bodyRow);
 
   // Status bar.
   const statusbar = el("footer", { class: "statusbar" });
@@ -181,15 +207,14 @@ export function regionVisible(region) {
 
 // Re-evaluate each menu item's `enabled()` (for example Close tab needs more than one open file).
 export function refreshMenus() {
-  for (const menu of registry.menus.values()) {
-    for (const item of menu.items) {
-      const button = document.getElementById(item.id);
-      if (button && item.enabled) button.disabled = !item.enabled();
-    }
-  }
-  for (const item of registry.toolbar.values()) {
+  const all = [
+    ...[...registry.menus.values()].flatMap((m) => m.items),
+    ...registry.toolbar.values(),
+  ];
+  for (const item of all) {
     const button = document.getElementById(item.id);
-    if (button && item.enabled) button.disabled = !item.enabled();
+    const enabled = enabledOf(item);
+    if (button && enabled) button.disabled = !enabled();
   }
 }
 

@@ -53,6 +53,7 @@ flowchart LR
 | 28 | Create, delete and track files; save to browser storage | asili-playground | Projects | 2 | Done in code; browser check pending |
 | 29 | Export and import `.asili.json` with validation | asili-playground | Projects | 2 | Done in code (validation tested); download and file picker checked by hand |
 | 30 | Run a project with `runBundle` | asili-playground, Asili (`driver/wasm`) | PG-5 | 2 | Done in code; `checkWithModules` in Asili `develop` |
+| 31 | VS Code-style IDE: activity bar, command palette, keys from one command registry (`commands.js`) | asili-playground | PG-5 | 2 | Done in code; browser check passed |
 | 25 | Virtual board: `runBoard`, event channel, board panel, `ubao` sample | Asili + asili-playground | board (Asili `ubao`) | 1 | Done (Asili 0.7.0; playground `main`) |
 
 v2 (after launch): trace tab (`trace` export), hover and completion in a worker, REPL panel,
