@@ -1697,7 +1697,7 @@ function showRootMenu(x, y, p, li) {
   add(T.newFile, () => newItemIn(p, "", "file"));
   add(T.newFolder, () => newItemIn(p, "", "folder"));
   add(T.projectRename, () => startRootRename(p, li));
-  add(T.projectDelete, () => deleteActiveProject(), T.confirmDelete);
+  add(T.projectDelete, () => deleteActiveProject());
   document.body.append(menu);
   fileMenu = menu;
   const dismiss = (e) => {
@@ -2128,17 +2128,18 @@ function renameActiveProject() {
 }
 
 let deleteArmedAt = 0;
+// Delete the open workspace after a confirmation dialog with a Delete button.
 function deleteActiveProject() {
   const p = activeProject();
   if (!p) return;
-  const now = Date.now();
-  if (now - deleteArmedAt > 4000) {
-    deleteArmedAt = now;
-    note(T.confirmDelete, "error");
-    return;
-  }
-  deleteArmedAt = 0;
-  for (const d of docs.filter((x) => x.projectId === p.id)) closeDoc(d, { force: true });
+  showDialog(`${T.projectDelete} "${p.name}"?`, [
+    { label: T.projectDelete, run: () => performDeleteWorkspace(p) },
+    { label: T.cancel, run: () => {} },
+  ]);
+}
+
+function performDeleteWorkspace(p) {
+  for (const d of docs.filter((x) => x.projectId === p.id)) closeDoc(d);
   projects = projects.filter((x) => x.id !== p.id);
   lastRemoved = { kind: "project", project: p };
   activeProjectId = projects[0]?.id ?? null;
@@ -2146,10 +2147,6 @@ function deleteActiveProject() {
   showUndo(`${p.name}: ${T.deleted}`);
   renderProjectSection();
   renderTabs();
-  if (docs.length === 0) {
-    const first = [...samplesById.keys()][0];
-    if (first) openSample(first);
-  }
 }
 
 function errText(e) {
