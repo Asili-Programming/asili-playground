@@ -38,11 +38,14 @@ string. Required (work in the Asili repo, `driver/wasm`):
 | Export | Returns | Backs | Built on |
 | --- | --- | --- | --- |
 | `run`, `runBundle` | Output through `console`; error | PG-4, PG-5 | Exists |
-| `check(files)` | Diagnostics: file, line, column, code, Swahili message | PG-3, PG-8 | The CLI's compile front end (`parse_and_resolve` + `check_program`), not a second checker |
+| `runBoard(source, triples)` | Output through `console`, board events tagged on the console channel | PG-4, board | Exists (`driver/wasm`, `platform::write_event`) |
+| `check(source)` | JSON array of `{line, column, code, message}` (`[]` when clean); one file for now | PG-3, PG-8 | The CLI's compile front end (`parse_tokens` + `semantic_check_with_env`), not a second checker. Multi-file `check(files)` follows `runBundle` |
 | `format(source)` | Formatted source or a diagnostic | PG-6 | `pata-fmt` library |
 | `lint(files)` | Findings: rule code (`LINT001`…), line, message | PG-7 | `pata-lint` library |
 | `test(files)` | Per-test pass or fail and output | PG-9 | Same runner as `pata jaribu` (`NativeProgram::run_function`) |
 | `trace(files)` | Trace events as JSON | PG-14 (v2) | `asili-trace` |
+
+Status of this table: `run`, `runBundle` and `runBoard` exist; `check` is the next export (task 11).
 
 Every export reuses the crate the CLI uses, so the playground cannot disagree with `pata` (Asili's
 write-once rule). Runtime errors also need a line: `run` should return structured errors, not only a
@@ -61,7 +64,10 @@ the way, put it behind a feature flag.
 - Asili highlighting stays a `StreamLanguage` whose keyword and type lists are generated from the
   compiler (the Asili repo's `editor_word_lists` test already checks `main.js` against
   `asili_lexer::KEYWORDS` via `ASILI_PLAYGROUND_DIR`).
-- Diagnostics use `@codemirror/lint` (vendored) fed from `check` and `lint`.
+- Diagnostics are line decorations (a `StateField` of `Decoration.line`, from the vendored
+  `@codemirror/state` and `@codemirror/view`), with the message as the line's `title`. This does not
+  vendor `@codemirror/lint`: it would be a new npm package, and the two packages already pinned are
+  enough. Revisit if gutter markers or a diagnostics panel are wanted.
 
 ## Files, sharing and embedding
 

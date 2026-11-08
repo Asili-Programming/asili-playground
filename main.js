@@ -6,7 +6,7 @@ import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
   StreamLanguage, syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching,
-  oneDark,
+  oneDark, Decoration, StateField, StateEffect,
 } from "./vendor/codemirror.js";
 
 // ---- Language -------------------------------------------------------------------------------
@@ -113,6 +113,50 @@ const BUILTIN_TYPES = new Set([
 ]);
 // </generated>
 
+// ---- Errors on the line ---------------------------------------------------------------------
+// The engine's `check` (driver/wasm) reports each diagnostic with its line. The page marks that
+// line; the message is the line's tooltip. Results are for one version of the source: a result
+// for an older edit is dropped (see `checkSeq`).
+const setDiagnostics = StateEffect.define();
+
+function diagnosticMarks(items, doc) {
+  const marks = [];
+  for (const d of items) {
+    if (!d.line || d.line < 1 || d.line > doc.lines) continue;
+    marks.push(
+      Decoration.line({ attributes: { class: "cm-err-line", title: `${d.code}: ${d.message}` } })
+        .range(doc.line(d.line).from),
+    );
+  }
+  return Decoration.set(marks, true);
+}
+
+const diagnosticField = StateField.define({
+  create: () => Decoration.none,
+  update(marks, tr) {
+    marks = marks.map(tr.changes);
+    for (const effect of tr.effects) {
+      if (effect.is(setDiagnostics)) marks = diagnosticMarks(effect.value, tr.state.doc);
+    }
+    return marks;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
+let checkSeq = 0;
+let checkTimer = null;
+
+function requestCheck() {
+  if (!engineReady || !worker) return;
+  checkSeq += 1;
+  worker.postMessage({ type: "check", seq: checkSeq, source: editor.state.doc.toString() });
+}
+
+function scheduleCheck() {
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(requestCheck, 400);
+}
+
 // ---- Editor ---------------------------------------------------------------------------------
 const state0 = () => EditorState.create({
   doc: "",
@@ -130,6 +174,10 @@ const state0 = () => EditorState.create({
     // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
     EditorView.theme({ ".cm-gutters": { color: "#9aa2b5" } }),
     EditorView.lineWrapping,
+    diagnosticField,
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) scheduleCheck();
+    }),
     EditorView.contentAttributes.of({ "aria-label": T.editor }),
   ],
 });
@@ -236,10 +284,18 @@ function onWorkerMessage(e) {
     engineReady = true;
     showState("ready");
     setStatus(T.ready, "ok");
+    requestCheck();
   } else if (m.type === "out") {
     appendOutput(m.text, m.err);
   } else if (m.type === "tukio") {
     handleEvent(m.json);
+  } else if (m.type === "diag") {
+    if (m.seq !== checkSeq) return;
+    try {
+      editor.dispatch({ effects: setDiagnostics.of(JSON.parse(m.json)) });
+    } catch {
+      // A malformed result only means no marks; the run still reports errors in the output.
+    }
   } else if (m.type === "done") {
     finishRun(T.done, "ok");
   } else if (m.type === "error") {

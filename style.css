@@ -219,3 +219,6 @@ a.switch { color: inherit; border: 1px solid currentColor; border-radius: 6px; p
 @media (max-width: 760px) {
   #board-pane { flex: none; border-left: none; border-top: 1px solid var(--border); }
 }
+
+/* Errors on the line (check): the line is tinted and marked on its left edge; the message is the tooltip. */
+.cm-err-line { background: rgba(220, 38, 38, 0.14); box-shadow: inset 3px 0 0 #dc2626; }
