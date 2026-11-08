@@ -18,7 +18,7 @@ import {
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
   StreamLanguage, syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching,
   oneDark, Decoration, StateField, StateEffect, Compartment,
-  undo, redo, toggleComment, selectAll,
+  undo, redo, selectAll,
 } from "./vendor/codemirror.js";
 
 // ---- Language -------------------------------------------------------------------------------
@@ -48,10 +48,10 @@ const STRINGS = {
     explorer: "Faili", samples: "Mifano", openFiles: "Mafaili yaliyo wazi", editor: "Msimbo",
     panel: "Paneli ya chini", problems: "Matatizo", noProblems: "Hakuna makosa",
     subtitle: "Uwanja wa Kuchezea",
-    projectSection: "Mradi", filesSection: "Faili za mradi", projectName: "Jina la mradi",
-    newProject: "Mradi mpya", exportProject: "Hamisha nje", importProject: "Ingiza", saveProject: "Hifadhi",
-    saveAsProject: "Hifadhi kama mradi", newFile: "Unda faili", fileName: "jina la faili",
-    deleteFile: "Futa", confirmDelete: "Thibitisha kufuta", noProject: "Hakuna mradi bado",
+    projectSection: "Nafasi ya kazi", filesSection: "Faili za mradi", projectName: "Jina la nafasi ya kazi",
+    newProject: "Nafasi mpya", exportProject: "Hamisha nje", importProject: "Ingiza", saveProject: "Hifadhi",
+    saveAsProject: "Hifadhi mfano kama nafasi ya kazi", openSample: "Fungua mfano", openWorkspace: "Fungua nafasi ya kazi", newFile: "Unda faili", fileName: "jina la faili",
+    deleteFile: "Futa", confirmDelete: "Thibitisha kufuta", noProject: "Hakuna nafasi ya kazi bado",
     stSaved: "imehifadhiwa", stModified: "imebadilishwa", stErrors: "makosa", noFiles: "Hakuna faili",
     savedNote: "Mradi umehifadhiwa", importedNote: "Mradi umeingizwa", exportedNote: "Mradi umehamishwa",
     storageOff: "Hifadhi haipatikani kwenye kivinjari hiki: mradi hautabaki", importFailed: "Kuingiza kumeshindikana",
@@ -66,9 +66,9 @@ const STRINGS = {
     findNext: "Ifuatayo", findPrev: "Iliyotangulia", replaceOne: "Badilisha", replaceAll: "Zote", closeFind: "Funga",
     lastFile: "Hili ndilo faili la mwisho: linabaki wazi", undoLabel: "Rudisha", deleted: "Limefutwa",
     rename: "Badilisha jina", duplicate: "Nakili faili", delete: "Futa", projectRename: "Badilisha jina",
-    projectDelete: "Futa mradi", projectDeleted: "Mradi umefutwa", fileRenamed: "Faili limebadilishwa jina",
+    projectDelete: "Futa nafasi ya kazi", projectDeleted: "Nafasi ya kazi imefutwa", fileRenamed: "Faili limebadilishwa jina",
     problemsIn: "Makosa", noProblemsInProject: "Hakuna makosa kwenye mradi", lightLabel: "Mwanga", darkLabel: "Giza",
-    lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia",
+    lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
     title: "Asili — Playground",
@@ -89,10 +89,10 @@ const STRINGS = {
     explorer: "Explorer", samples: "Samples", openFiles: "Open files", editor: "Code",
     panel: "Bottom panel", problems: "Problems", noProblems: "No problems",
     subtitle: "Playground",
-    projectSection: "Project", filesSection: "Project files", projectName: "Project name",
-    newProject: "New project", exportProject: "Export", importProject: "Import", saveProject: "Save",
-    saveAsProject: "Save as project", newFile: "Create file", fileName: "file name",
-    deleteFile: "Delete", confirmDelete: "Confirm delete", noProject: "No project yet",
+    projectSection: "Workspace", filesSection: "Project files", projectName: "Workspace name",
+    newProject: "New workspace", exportProject: "Export workspace", importProject: "Import workspace", saveProject: "Save",
+    saveAsProject: "Save sample as workspace", openSample: "Open sample", openWorkspace: "Open workspace", newFile: "Create file", fileName: "file name",
+    deleteFile: "Delete", confirmDelete: "Confirm delete", noProject: "No workspace yet",
     stSaved: "saved", stModified: "modified", stErrors: "errors", noFiles: "No files",
     savedNote: "Project saved", importedNote: "Project imported", exportedNote: "Project exported",
     storageOff: "Storage is not available in this browser: the project will not be kept", importFailed: "Import failed",
@@ -107,9 +107,9 @@ const STRINGS = {
     findNext: "Next", findPrev: "Previous", replaceOne: "Replace", replaceAll: "All", closeFind: "Close",
     lastFile: "This is the last file: it stays open", undoLabel: "Undo", deleted: "Deleted",
     rename: "Rename", duplicate: "Duplicate", delete: "Delete", projectRename: "Rename",
-    projectDelete: "Delete project", projectDeleted: "Project deleted", fileRenamed: "File renamed",
+    projectDelete: "Delete workspace", projectDeleted: "Workspace deleted", fileRenamed: "File renamed",
     problemsIn: "Problems", noProblemsInProject: "No problems in the project", lightLabel: "Light", darkLabel: "Dark",
-    lang: "Language", closeOthers: "Close others", closeRight: "Close to the right",
+    lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
 const T = STRINGS[lang];
@@ -137,14 +137,16 @@ document.body.classList.toggle("embed", isEmbed);
 // Commands are registered once; the menus, the palette and the keys all run them.
 registerCommand({ id: "palette.open", title: "Command palette", key: ["Ctrl+Shift+P", "F1"],
   inEditor: true, inInput: true, run: () => openPalette() });
-registerCommand({ id: "project.new", title: "New project", run: () => newProjectFromInput() });
+registerCommand({ id: "project.new", title: "New workspace", run: () => newProjectFromInput() });
+registerCommand({ id: "file.openSample", title: "Open sample", run: () => openSampleList() });
+registerCommand({ id: "file.openWorkspace", title: "Open workspace", run: () => openWorkspaceList() });
 registerCommand({ id: "project.save", title: "Save project", key: "Ctrl+S", inEditor: true, inInput: true,
   run: () => (activeDoc?.projectId ? saveActiveProject() : saveSampleAsProject()), enabled: () => !!activeDoc });
-registerCommand({ id: "project.saveAsProject", title: "Save sample as project", run: () => saveSampleAsProject(),
+registerCommand({ id: "project.saveAsProject", title: "Save sample as workspace", run: () => saveSampleAsProject(),
   enabled: () => !!activeDoc && !activeDoc.projectId });
-registerCommand({ id: "project.export", title: "Export project", run: () => exportActiveProject(),
+registerCommand({ id: "project.export", title: "Export workspace", run: () => exportActiveProject(),
   enabled: () => !!activeProject() });
-registerCommand({ id: "project.import", title: "Import project", run: () => document.getElementById("import-file").click() });
+registerCommand({ id: "project.import", title: "Import workspace", run: () => document.getElementById("import-file").click() });
 registerCommand({ id: "file.new", title: "New file", key: "Alt+N", inEditor: true, inInput: true,
   run: () => createUntitledFile() });
 registerCommand({ id: "file.close", title: "Close tab", key: "Alt+W", inEditor: true, inInput: true,
@@ -155,7 +157,7 @@ registerCommand({ id: "edit.find", title: "Find", key: "Ctrl+F", inEditor: true,
 registerCommand({ id: "edit.replace", title: "Replace", key: "Ctrl+H", inEditor: true, run: () => openFind("replace") });
 registerCommand({ id: "edit.goToLine", title: "Go to line", key: "Ctrl+G", inEditor: true, run: () => openFind("goto") });
 registerCommand({ id: "edit.comment", title: "Toggle comment", key: "Ctrl+/", inEditor: true,
-  run: () => toggleComment(editor) });
+  run: () => toggleLineComments() });
 registerCommand({ id: "edit.undo", title: "Undo", run: () => undo(editor) });
 registerCommand({ id: "edit.redo", title: "Redo", run: () => redo(editor) });
 registerCommand({ id: "edit.cut", title: "Cut", run: () => { editor.focus(); document.execCommand("cut"); } });
@@ -185,10 +187,12 @@ addMenu({
   id: "faili", label: "menuFile", order: 10, optional: true,
   items: [
     { id: "menu-project-new", label: "newProject", command: "project.new" },
+    { id: "menu-open-sample", label: "openSample", command: "file.openSample" },
+    { id: "menu-open-workspace", label: "openWorkspace", command: "file.openWorkspace" },
     { id: "menu-project-save", label: "saveProject", command: "project.save" },
     { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
-    { id: "menu-project-export", label: "exportProject", command: "project.export" },
     { id: "menu-project-import", label: "importProject", command: "project.import" },
+    { id: "menu-project-export", label: "exportProject", command: "project.export" },
     { id: "share-btn", label: "share", optional: true, command: "share.link" },
     { id: "close-tab-btn", label: "closeTab", optional: true, command: "file.close" },
   ],
@@ -249,20 +253,9 @@ addTabEndItem({ id: "lugha-switch", title: "switchLabel", order: 10, optional: t
   run: () => { location.href = `?lugha=${T.switchTo}`; } });
 
 addSidebarSection("primary", {
-  id: "samples", title: "samples", order: 10,
-  render(container, t) {
-    const picker = document.createElement("select");
-    picker.id = "sample-picker";
-    picker.title = t("sampleTitle");
-    picker.addEventListener("change", () => openSample(picker.value));
-    container.append(picker);
-  },
-});
-addSidebarSection("primary", {
   id: "project", title: "projectSection", order: 20,
   render(container, t) {
     container.innerHTML = `
-      <select id="project-picker" aria-label="${t("projectSection")}"></select>
       <div class="sidebar-row">
         <input id="project-name" type="text" placeholder="${t("projectName")}" aria-label="${t("projectName")}" />
         <button id="project-new-btn" type="button">${t("newProject")}</button>
@@ -577,7 +570,6 @@ const statusEl = document.getElementById("status");
 const runBtn = document.getElementById("run-btn");
 const stopBtn = document.getElementById("stop-btn");
 const clearBtn = document.getElementById("clear-btn");
-const samplePicker = document.getElementById("sample-picker");
 const params = new URLSearchParams(location.search);
 const sampleId = params.get("sample");
 // ?embed=1: editor, Run and output only, for an <iframe> (see style.css, body.embed).
@@ -781,6 +773,10 @@ let samplesById = new Map();
 function projectById(id) {
   return projects.find((p) => p.id === id) ?? null;
 }
+// A workspace is what the interface calls a project (VS Code's word for the same thing).
+function activeWorkspace() {
+  return activeProject();
+}
 function activeProject() {
   return projectById(activeProjectId);
 }
@@ -920,6 +916,30 @@ function openProjectFile(p, file) {
   return openDoc(`p:${p.id}:${file}`, file, p.files[file], { projectId: p.id, file });
 }
 
+// File > Open sample: every sample, by its label.
+function openSampleList() {
+  openList({
+    placeholder: T.openSample,
+    items: [...samplesById].map(([file, sample]) => ({
+      label: (lang === "en" && sample.label_en) ? sample.label_en : sample.label,
+      detail: file,
+      run: () => openSample(file),
+    })),
+  });
+}
+
+// File > Open workspace: every workspace kept in this browser.
+function openWorkspaceList() {
+  openList({
+    placeholder: T.openWorkspace,
+    items: projects.map((p) => ({
+      label: p.name,
+      detail: `${Object.keys(p.files).length} ${T.stFiles ?? "files"}`,
+      run: () => openProjectFile(p, ENTRY),
+    })),
+  });
+}
+
 async function openSample(file) {
   const sample = samplesById.get(file);
   const res = await fetch(`samples/${file}`);
@@ -1041,19 +1061,8 @@ function createFileFromInput() {
 
 
 function renderProjectSection() {
-  const picker = document.getElementById("project-picker");
-  if (!picker) return;
-  picker.replaceChildren(...(projects.length
-    ? projects.map((p) => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.name;
-      opt.selected = p.id === activeProjectId;
-      return opt;
-    })
-    : [Object.assign(document.createElement("option"), { textContent: T.noProject, value: "" })]));
-  const has = !!activeProject();
-  for (const id of ["project-save-btn", "project-export-btn"]) {
+  const has = !!activeWorkspace();
+  for (const id of ["project-save-btn", "project-export-btn", "project-rename-btn", "project-delete-btn"]) {
     const b = document.getElementById(id);
     if (b) b.disabled = !has;
   }
@@ -1222,13 +1231,6 @@ async function loadSamples() {
   const res = await fetch("samples/manifest.json");
   const manifest = await res.json();
   samplesById = new Map(manifest.map((sample) => [sample.file, sample]));
-  const picker = document.getElementById("sample-picker");
-  for (const sample of manifest) {
-    const opt = document.createElement("option");
-    opt.value = sample.file;
-    opt.textContent = (lang === "en" && sample.label_en) ? sample.label_en : sample.label;
-    picker.appendChild(opt);
-  }
   // A share link (#k=) wins; then the saved session; then the active project's entry; then the sample.
   let opened = false;
   if (location.hash.startsWith("#k=")) {
@@ -1249,7 +1251,6 @@ async function loadSamples() {
   if (!opened && manifest.length > 0) {
     const sampleId = new URLSearchParams(location.search).get("sample");
     const wanted = manifest.find((sample) => sample.id === sampleId) ?? manifest[0];
-    picker.value = wanted.file;
     await openSample(wanted.file);
   }
   renderProjectSection();
@@ -1257,10 +1258,6 @@ async function loadSamples() {
 }
 
 // Wire the sidebar controls (they exist once the shell is rendered).
-document.getElementById("project-picker")?.addEventListener("change", (e) => {
-  const p = projectById(e.target.value);
-  if (p) openProjectFile(p, ENTRY);
-});
 document.body.addEventListener("click", (e) => {
   const id = e.target?.id;
   if (id === "project-new-btn") newProjectFromInput();
@@ -1735,6 +1732,27 @@ function toggleTheme() {
     // The choice is kept for this visit only.
   }
   editor.dispatch({ effects: themeCell.reconfigure(light ? [] : oneDark) });
+}
+
+// Ctrl+/: comment the selected lines with "# " (Asili's line comment), or uncomment them when every
+// selected line already starts with it.
+function toggleLineComments() {
+  const { state } = editor;
+  const sel = state.selection.main;
+  const first = state.doc.lineAt(sel.from).number;
+  const last = state.doc.lineAt(sel.to).number;
+  const lines = [];
+  for (let n = first; n <= last; n++) lines.push(state.doc.line(n));
+  const allCommented = lines.every((l) => /^\s*#/.test(l.text));
+  const changes = lines.map((l) => {
+    if (allCommented) {
+      const m = /^(\s*)# ?/.exec(l.text);
+      return m ? { from: l.from + m[1].length, to: l.from + m[0].length, insert: "" } : null;
+    }
+    const indent = /^\s*/.exec(l.text)[0].length;
+    return { from: l.from + indent, to: l.from + indent, insert: "# " };
+  }).filter(Boolean);
+  editor.dispatch({ changes });
 }
 
 // ---- Paste from the clipboard ----------------------------------------------------------------
