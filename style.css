@@ -478,3 +478,15 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 #file-list .tree-row.root { font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.04em; padding-left: 0.4rem; min-height: 1.8rem; }
 #file-list .tree-row.root .ico-folder { color: var(--muted); }
 #file-list .tree-row.config .ico { color: #9aa2b5; }
+
+/* ---- Notifications: a stack at the bottom right; the status bar's bell lists them ----------- */
+.notifications { position: fixed; right: 0.9rem; bottom: 2.2rem; z-index: 70; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-end; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 0.6rem; max-width: 24rem; padding: 0.55rem 0.6rem 0.55rem 0.8rem;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); font-size: 0.85rem; }
+.toast.ok { border-left-color: #7fd48a; }
+.toast.error { border-left-color: var(--error); }
+.toast span { flex: 1 1 auto; }
+.toast-close { border: 0; background: transparent; color: var(--muted); padding: 0 0.2rem; line-height: 1; }
+.toast-close:hover { color: var(--text); }
+.statusbar .bell { display: inline-flex; align-items: center; gap: 0.25rem; }

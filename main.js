@@ -79,7 +79,7 @@ const STRINGS = {
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
-    newFolder: "Folda mpya", collapseAll: "Funga folda zote", lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
+    newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
     title: "Asili — Playground",
@@ -130,7 +130,7 @@ const STRINGS = {
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
-    newFolder: "New folder", collapseAll: "Collapse folders", lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
+    newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
 const T = STRINGS[lang];
@@ -307,7 +307,6 @@ addSidebarSection("primary", {
         <button id="explorer-new-folder" class="icon-btn" type="button" title="${t("newFolder")}" aria-label="${t("newFolder")}">${ICON_NEW_FOLDER}</button>
         <button id="explorer-collapse" class="icon-btn" type="button" title="${t("collapseAll")}" aria-label="${t("collapseAll")}">${ICON_COLLAPSE}</button>
       </div>
-      <p id="project-note" class="sidebar-note" role="status"></p>
       <div id="undo-note" class="undo-note" role="status" hidden></div>
       <ul id="file-list" class="open-files" aria-label="${t("explorer")}"></ul>`;
   },
@@ -351,6 +350,14 @@ addStatusItem({ id: "state", order: 10, render(slot) {
 } });
 addStatusItem({ id: "cursor", order: 20, render(slot) { slot.id = "cursor-pos"; } });
 addStatusItem({ id: "file", order: 30, render(slot) { slot.id = "status-file"; } });
+addStatusItem({ id: "bell", order: 45, render(slot) {
+  slot.id = "status-bell";
+  slot.className = "status-item clickable bell";
+  slot.title = T.notifications;
+  slot.setAttribute("aria-label", T.notifications);
+  slot.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>`;
+  slot.addEventListener("click", () => openNotifications());
+} });
 addStatusItem({ id: "language", order: 40, render(slot, t) { slot.id = "status-language"; slot.textContent = t("lang") + ": Asili"; } });
 addStatusItem({ id: "problems", order: 50, render(slot) {
   slot.id = "status-problems";
@@ -462,6 +469,11 @@ let checkTimer = null;
 
 function requestCheck() {
   if (!engineReady || !worker) return;
+  // The workspace file is JSON, not Asili: it has no diagnostics.
+  if (activeDoc && isConfig(activeDoc.file ?? "")) {
+    renderProblems([]);
+    return;
+  }
   checkSeq += 1;
   // The other modules of the active project, so `leta <module>` is not reported as unknown.
   const p = activeDoc?.projectId ? projectById(activeDoc.projectId) : null;
@@ -988,13 +1000,48 @@ function liveProject(p) {
 }
 
 // ---- Projects: create, save, export, import --------------------------------------------------
+// Notifications: a message from an action, shown in the stack at the bottom right (and kept in the
+// bell's history). The status bar text is the engine's, so a message never replaces it.
+const notifyHistory = [];
 function note(text, kind = "ok") {
-  const el = document.getElementById("project-note");
-  if (el) {
-    el.textContent = text;
-    el.className = `sidebar-note ${kind}`;
-  }
-  setStatus(text, kind);
+  const stack = document.getElementById("notifications");
+  notifyHistory.push({ text, kind, at: new Date() });
+  if (notifyHistory.length > 100) notifyHistory.shift();
+  renderBell();
+  if (!stack) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${kind}`;
+  toast.setAttribute("role", kind === "error" ? "alert" : "status");
+  const message = document.createElement("span");
+  message.textContent = text;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.textContent = "×";
+  close.setAttribute("aria-label", T.closeFind);
+  const dismiss = () => toast.remove();
+  close.addEventListener("click", dismiss);
+  toast.append(message, close);
+  stack.append(toast);
+  setTimeout(dismiss, kind === "error" ? 8000 : 4000);
+  while (stack.children.length > 4) stack.firstElementChild.remove();
+}
+
+function renderBell() {
+  const bell = document.getElementById("status-bell");
+  if (bell) bell.textContent = notifyHistory.length ? `${notifyHistory.length}` : "";
+}
+
+// The bell lists the notifications of this visit, newest first, in a list overlay.
+function openNotifications() {
+  openList({
+    placeholder: T.notifications,
+    items: notifyHistory.slice().reverse().map((n) => ({
+      label: n.text,
+      detail: `${n.at.toLocaleTimeString()} · ${n.kind}`,
+      run: () => {},
+    })),
+  });
 }
 
 function persistProjects() {
@@ -2120,6 +2167,11 @@ async function pasteFromClipboard() {
 }
 
 // ---- Start ----------------------------------------------------------------------------------
+const notificationStack = document.createElement("div");
+notificationStack.id = "notifications";
+notificationStack.className = "notifications";
+notificationStack.setAttribute("aria-live", "polite");
+document.body.append(notificationStack);
 stopBtn.hidden = true;
 refreshMenus();
 resetBoard();
