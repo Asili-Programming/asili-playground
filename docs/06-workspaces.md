@@ -44,6 +44,23 @@ commands open, save, export, import, rename and delete them.
   `kuu.as`, and it cannot be deleted.
 - **Size limits:** 256 KB per file, 2 MB per project, 32 files. An import above a limit is refused.
 
+## The workspace file
+
+A workspace's configuration is a file at the root of the workspace, `asili-workspace.json`, as a
+VS Code workspace keeps its `.code-workspace` file. It holds what describes the workspace:
+
+```json
+{ "schema": "asili-workspace", "version": 1, "name": "Hesabu", "entry": "kuu.as",
+  "folders": ["lib"], "settings": {} }
+```
+
+- The file is kept with the workspace's files, so it is saved, exported and imported with them. It
+  is shown in the Explorer at the root, with a configuration icon.
+- The playground writes it from the workspace's state after each change (rename, a folder made or
+  removed). Its name and folders are read back on import.
+- It is not an Asili module: it does not count as a file of the program, and `leta` cannot name it.
+- It cannot be deleted, renamed or moved.
+
 ## Folders
 
 A workspace is a directory tree, as on an operating system:
