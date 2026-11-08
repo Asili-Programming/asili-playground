@@ -158,6 +158,18 @@ on the left, the right sidebar's on the right). The bottom panel shows its tabs 
 top. Each view has an icon and a name: the icon is what the side bar shows, the name is the tooltip
 and the bottom panel's label.
 
+## Notifications
+
+Messages from actions (saved, renamed, could not import, storage is off) are notifications, not text
+inside a panel:
+
+- They appear in a stack at the bottom right of the page and fade out after a few seconds (errors
+  stay longer). A close button removes one at once.
+- The status bar's bell shows how many notifications were raised in this visit; clicking it lists them.
+- Nothing is written into the Explorer or another view, so no view changes size or position for a
+  message.
+- The status bar's text is reserved for the engine (Ready, Running, Finished, Error).
+
 ## Edge cases
 
 | Situation | What the user sees |
