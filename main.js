@@ -81,6 +81,8 @@ const STRINGS = {
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
     newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha",
+    explorerEmpty: "Hakuna nafasi ya kazi iliyo wazi", explorerNew: "Nafasi mpya ya kazi",
+    explorerOpen: "Fungua nafasi ya kazi", explorerSample: "Fungua mfano",
     emptyTitle: "Hakuna faili lililo wazi", emptyNew: "Nafasi mpya ya kazi", emptyOpen: "Fungua mfano",
     emptyRecent: "Fungua hivi karibuni",
     openView: "Fungua mwonekano…", appearance: "Mwonekano wa skrini", editorLayout: "Mpangilio wa mhariri",
@@ -140,6 +142,8 @@ const STRINGS = {
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
     newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language",
+    explorerEmpty: "No workspace is open", explorerNew: "New workspace",
+    explorerOpen: "Open workspace", explorerSample: "Open sample",
     emptyTitle: "No file is open", emptyNew: "New workspace", emptyOpen: "Open sample",
     emptyRecent: "Open recent",
     openView: "Open View…", appearance: "Appearance", editorLayout: "Editor Layout",
@@ -1715,7 +1719,26 @@ function renderFiles() {
   list.tabIndex = -1;
   const p = activeProject();
   list.replaceChildren();
-  if (!p) return;
+  // The toolbar's file commands need a workspace.
+  for (const id of ["explorer-new-file", "explorer-new-folder", "explorer-collapse"]) {
+    const b = document.getElementById(id);
+    if (b) b.disabled = !p;
+  }
+  if (!p) {
+    // No workspace: say so, and offer the ways to get one (as VS Code's Explorer does).
+    const box = document.createElement("li");
+    box.className = "explorer-empty";
+    box.innerHTML = `<p>${T.explorerEmpty}</p><div class="empty-actions">
+      <button type="button" data-run="project.new">${T.explorerNew}</button>
+      <button type="button" data-run="file.openWorkspace">${T.explorerOpen}</button>
+      <button type="button" data-run="file.openSample">${T.explorerSample}</button></div>`;
+    box.addEventListener("click", (e) => {
+      const id = e.target?.dataset?.run;
+      if (id) runCommand(id);
+    });
+    list.append(box);
+    return;
+  }
   list.append(workspaceRoot(p));
   renderTreeLevel(p, buildTree(p), "", 1, list);
   if (Object.keys(p.files).length === 0) {

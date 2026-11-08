@@ -518,3 +518,10 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 .empty-state h2 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
 .empty-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
 .empty-actions button { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+
+/* ---- Explorer's empty state: no workspace open ---------------------------------------------- */
+#file-list .explorer-empty { display: flex; flex-direction: column; gap: 0.7rem; padding: 0.8rem 0.9rem; color: var(--muted); font-size: 0.85rem; list-style: none; cursor: default; }
+#file-list .explorer-empty p { margin: 0; line-height: 1.4; }
+#file-list .explorer-empty .empty-actions { justify-content: flex-start; }
+#file-list .explorer-empty button { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
+.explorer-toolbar button:disabled { opacity: 0.4; cursor: default; }
