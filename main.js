@@ -1109,6 +1109,12 @@ async function openSample(file) {
   const res = await fetch(`samples/${file}`);
   const text = await res.text();
   const label = (lang === "en" && sample?.label_en) ? sample.label_en : (sample?.label ?? file);
+  // A sample already open as a workspace is switched to, not copied again.
+  const existing = projects.find((x) => x.origin === `sample:${file}`);
+  if (existing) {
+    askToSaveCurrent(existing.name, () => switchWorkspace(existing));
+    return;
+  }
   askToSaveCurrent(label, () => {
     const p = projectFromSample(uniqueName(label, projects.map((x) => x.name)), text);
     p.id = newId();
