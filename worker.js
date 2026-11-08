@@ -64,8 +64,11 @@ self.addEventListener("message", async (e) => {
     }
     if (typeof glue.check !== "function") return;
     const modules = (e.data.modules || []).join(",");
+    // A project file imports its sibling files; an engine without checkWithModules cannot know them,
+    // so it reports nothing rather than false "unknown module" errors.
+    if (modules && typeof glue.checkWithModules !== "function") return;
     try {
-      const json = modules && typeof glue.checkWithModules === "function"
+      const json = modules
         ? glue.checkWithModules(e.data.source, modules)
         : glue.check(e.data.source);
       send({ type: "diag", seq: e.data.seq, json });
