@@ -621,7 +621,8 @@ function renderMobileNav(t) {
     const button = el("button", { type: "button", class: "mobile-nav-btn", "data-mobile": id, "aria-label": t(view.title) });
     button.innerHTML = view.icon ?? "";
     button.append(el("span", { class: "mobile-nav-text" }, t(view.title)));
-    button.addEventListener("click", () => showView(id));
+    // One view at a time on a phone: the others close first.
+    button.addEventListener("click", () => { closeSheets(); showView(id); });
     nav.append(button);
   }
   document.querySelector(".ide")?.append(nav);
