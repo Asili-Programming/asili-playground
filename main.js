@@ -2161,15 +2161,25 @@ function deleteActiveProject() {
   ]);
 }
 
+// Delete a workspace: its files close, and it is no longer the open workspace. The Explorer then
+// shows its empty state (no other workspace is opened in its place).
 function performDeleteWorkspace(p) {
-  for (const d of docs.filter((x) => x.projectId === p.id)) closeDoc(d);
+  const wasOpen = activeProjectId === p.id;
+  const removed = docs.filter((x) => x.projectId === p.id);
+  for (const d of removed) docs.splice(docs.indexOf(d), 1);
+  if (removed.includes(activeDoc)) activeDoc = null;
   projects = projects.filter((x) => x.id !== p.id);
   lastRemoved = { kind: "project", project: p };
-  activeProjectId = projects[0]?.id ?? null;
+  if (wasOpen) activeProjectId = null;
   persistProjects();
   showUndo(`${p.name}: ${T.deleted}`);
+  if (wasOpen) {
+    if (docs.length) activate(docs[0]);
+    else showEmptyState();
+  }
   renderProjectSection();
   renderTabs();
+  renderFiles();
 }
 
 function errText(e) {
