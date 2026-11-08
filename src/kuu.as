@@ -36,6 +36,7 @@ kazi mtumishi(ombi: OmbiHttp) -> JibuHttp {
         "/vendor/codemirror.js" => { rejesha jibu_faili("vendor/codemirror.js", "text/javascript; charset=utf-8") }
         "/worker.js" => { rejesha jibu_faili("worker.js", "text/javascript; charset=utf-8") }
         "/favicon.svg" => { rejesha jibu_faili("favicon.svg", "image/svg+xml") }
+        "/logo-mark.svg" => { rejesha jibu_faili("logo-mark.svg", "image/svg+xml") }
         "/pkg/asili_wasm.js" => { rejesha jibu_faili("pkg/asili_wasm.js", "text/javascript; charset=utf-8") }
         "/pkg/asili_wasm_bg.wasm.b64" => { rejesha jibu_faili("pkg/asili_wasm_bg.wasm.b64", "text/plain; charset=utf-8") }
         "/samples/manifest.json" => { rejesha jibu_faili("samples/manifest.json", "application/json; charset=utf-8") }

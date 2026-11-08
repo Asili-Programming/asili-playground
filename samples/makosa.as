@@ -1,3 +1,5 @@
+# sw: Kushughulikia Makosa (Result)
+# en: Handling errors (Result)
 leta matumizi
 
 kazi gawanya(a: Namba, b: Namba) -> Tokeo<Namba, Neno> {
