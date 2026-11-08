@@ -88,8 +88,10 @@ stateDiagram-v2
   None --> Clean: a sample, a new workspace, or a shared link opens
   Clean --> Dirty: an open file's text differs from its saved text
   Dirty --> Clean: Save
-  Clean --> None: the workspace is deleted (its files close)
-  Dirty --> None: deleted, unsaved changes discarded
+  Clean --> None: Close workspace (kept, listed under Open Recent)
+  Dirty --> None: Close workspace asks: Save, then close; Don't save, then close; Cancel stays
+  Clean --> None: Delete workspace (removed for good, after a dialog with a Delete button)
+  Dirty --> None: Delete workspace asks as well; the unsaved changes are dropped
   Dirty --> Clean: switching asks: Save, then open
   Dirty --> Clean: switching asks: Don't save, then open
   Dirty --> Dirty: switching asks: Cancel (stays open)
@@ -99,6 +101,8 @@ stateDiagram-v2
   area's empty state when no file is open.
 - **Clean** and **Dirty** are the same workspace; Dirty only adds the unsaved-change mark on its tabs
   and in the file list.
+- **Close workspace** and **Delete workspace** are different. Close keeps the workspace saved (it stays
+  under Open Recent and Open workspace); Delete removes it, after a confirmation dialog.
 - **Switching** from a Dirty workspace always asks first. The dialog's buttons are Save, Don't save and
   Cancel.
 

@@ -44,6 +44,14 @@ commands open, save, export, import, rename and delete them.
   `kuu.as`, and it cannot be deleted.
 - **Size limits:** 256 KB per file, 2 MB per project, 32 files. An import above a limit is refused.
 
+## Closing and deleting
+
+- **Close workspace** (File menu): closes its open files and leaves the Explorer with no workspace.
+  The workspace is kept: it stays under Open Recent and Open workspace. If it has unsaved changes, the
+  page asks first (Save, Don't save, Cancel).
+- **Delete workspace** (File menu, or the right-click menu on the workspace's name): removes it. A
+  dialog with a Delete button asks first; Undo brings it back for a few seconds.
+
 ## Opening a sample, and Open Recent
 
 - **Open sample** opens a sample as a workspace of its own (its `kuu.as` is the sample's source). The
