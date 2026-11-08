@@ -87,7 +87,7 @@ const STRINGS = {
     emptyRecent: "Fungua hivi karibuni",
     openView: "Fungua mwonekano…", appearance: "Mwonekano wa skrini", editorLayout: "Mpangilio wa mhariri",
     singleEditor: "Mhariri mmoja", wordWrap: "Kufunga maneno",
-    openRecent: "Fungua hivi karibuni", saveBefore: "Hifadhi mabadiliko ya", beforeOpening: "kabla ya kufungua",
+    closeWorkspace: "Funga nafasi ya kazi", openRecent: "Fungua hivi karibuni", saveBefore: "Hifadhi mabadiliko ya", beforeOpening: "kabla ya kufungua",
     dontSave: "Usihifadhi", cancel: "Ghairi",
     menuTools: "Zana", lintFile: "Kagua faili", formatted: "Msimbo umepangwa", formatUnchanged: "Msimbo uko sawa tayari",
     lintClean: "Hakuna makosa ya kukagua", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
@@ -148,7 +148,7 @@ const STRINGS = {
     emptyRecent: "Open recent",
     openView: "Open View…", appearance: "Appearance", editorLayout: "Editor Layout",
     singleEditor: "Single editor", wordWrap: "Word Wrap",
-    openRecent: "Open recent", saveBefore: "Save changes to", beforeOpening: "before opening",
+    closeWorkspace: "Close workspace", openRecent: "Open recent", saveBefore: "Save changes to", beforeOpening: "before opening",
     dontSave: "Don't save", cancel: "Cancel",
     menuTools: "Tools", lintFile: "Lint file", formatted: "Code formatted", formatUnchanged: "Code is already formatted",
     lintClean: "No lint findings", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
@@ -213,6 +213,8 @@ registerCommand({ id: "tools.format", title: "Format document", key: "Alt+Shift+
 registerCommand({ id: "tools.lint", title: "Lint file", run: () => requestLint(),
   enabled: () => engineReady && !busy && !!activeDoc });
 registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
+registerCommand({ id: "project.close", title: "Close workspace", run: () => closeWorkspace(),
+  enabled: () => !!activeProject() });
 registerCommand({ id: "project.rename", title: "Rename workspace", run: () => renameActiveProject(),
   enabled: () => !!activeProject() });
 registerCommand({ id: "project.delete", title: "Delete workspace", run: () => deleteActiveProject(),
@@ -245,6 +247,7 @@ addMenu({
     { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
     { id: "menu-project-import", label: "importProject", command: "project.import" },
     { id: "menu-project-export", label: "exportProject", command: "project.export" },
+    { id: "menu-project-close", label: "closeWorkspace", command: "project.close" },
     { id: "menu-project-rename", label: "projectRename", command: "project.rename" },
     { id: "menu-project-delete", label: "projectDelete", command: "project.delete" },
     { id: "share-btn", label: "share", optional: true, command: "share.link" },
@@ -565,6 +568,7 @@ let sessionSaved = true;
 function persistSession() {
   const data = {
     active: activeDoc?.key ?? null,
+    workspace: activeProjectId,
     docs: docs.map((d) => ({ key: d.key, name: d.name, projectId: d.projectId, file: d.file,
       text: d === activeDoc ? editor.state.doc.toString() : d.text })),
   };
@@ -583,6 +587,7 @@ window.addEventListener("beforeunload", (e) => {
 function restoreSession(samplesOf) {
   const saved = loadSession();
   if (!saved) return false;
+  activeProjectId = projectById(saved.workspace) ? saved.workspace : null;
   if (saved.docs.length === 0) {
     showEmptyState();
     return true;
@@ -921,7 +926,7 @@ function activeProject() {
 let projects = loadProjects();
 // A workspace saved before the configuration file existed gets one now.
 for (const p of projects) syncConfig(p);
-let activeProjectId = projects[0]?.id ?? null;
+let activeProjectId = null; // set by the saved session, or when a workspace is opened
 
 function isDirty(d) {
   const p = d.projectId ? projectById(d.projectId) : null;
@@ -1700,6 +1705,7 @@ function showRootMenu(x, y, p, li) {
   };
   add(T.newFile, () => newItemIn(p, "", "file"));
   add(T.newFolder, () => newItemIn(p, "", "folder"));
+  add(T.closeWorkspace, () => closeWorkspace());
   add(T.projectRename, () => startRootRename(p, li));
   add(T.projectDelete, () => deleteActiveProject());
   document.body.append(menu);
@@ -2163,6 +2169,35 @@ function deleteActiveProject() {
 
 // Delete a workspace: its files close, and it is no longer the open workspace. The Explorer then
 // shows its empty state (no other workspace is opened in its place).
+// Close a workspace: its files close, and it is kept (Open Recent lists it). Unsaved changes are
+// asked about first.
+function closeWorkspace() {
+  const p = activeProject();
+  if (!p) return;
+  if (!workspaceDirty(p)) {
+    performCloseWorkspace(p);
+    return;
+  }
+  showDialog(`${T.saveBefore} "${p.name}"?`, [
+    { label: T.saveProject, run: () => { saveActiveProject(); performCloseWorkspace(p); } },
+    { label: T.dontSave, run: () => performCloseWorkspace(p) },
+    { label: T.cancel, run: () => {} },
+  ]);
+}
+
+function performCloseWorkspace(p) {
+  const removed = docs.filter((x) => x.projectId === p.id);
+  for (const d of removed) docs.splice(docs.indexOf(d), 1);
+  if (removed.includes(activeDoc)) activeDoc = null;
+  if (activeProjectId === p.id) activeProjectId = null;
+  persistProjects();
+  if (docs.length) activate(docs[0]);
+  else showEmptyState();
+  renderProjectSection();
+  renderTabs();
+  renderFiles();
+}
+
 function performDeleteWorkspace(p) {
   const wasOpen = activeProjectId === p.id;
   const removed = docs.filter((x) => x.projectId === p.id);
