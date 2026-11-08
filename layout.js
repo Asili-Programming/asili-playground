@@ -100,7 +100,9 @@ export function renderShell(root, { t, embed = false }) {
   root.replaceChildren();
 
   // Menu bar.
-  const menubar = el("div", { class: "menubar", role: "menubar" });
+  // A plain group of menus and buttons: the menus are native <details>, so no menubar role (it
+  // would need menuitem children).
+  const menubar = el("div", { class: "menubar", "aria-label": t("menu") });
   const brandNode = el("span", { class: "brand" });
   if (brand.logo) brandNode.append(el("img", { class: "logo", src: brand.logo, alt: "", width: 22, height: 24 }));
   brandNode.append(document.createTextNode(` ${brand.title} `));
@@ -137,7 +139,8 @@ export function renderShell(root, { t, embed = false }) {
   workbench.append(regionNode("primary", t));
   workbench.append(splitter("primary"));
 
-  const main = el("section", { id: "editor-pane", class: "main", "aria-label": t("editor") });
+  // The editor area is the page's main landmark.
+  const main = el("main", { id: "editor-pane", class: "main", "aria-label": t("editor") });
   // The tab row: the open files, then icons at its right end (the language switch).
   const tabbar = el("div", { class: "tabbar" });
   tabbar.append(el("div", { id: "doc-tabs", class: "doc-tabs", role: "tablist", "aria-label": t("openFiles") }));
@@ -358,6 +361,10 @@ function createViews(keep, t) {
     tab.append(icon, el("span", { class: "tab-text" }, t(view.title)));
     if (view.id === "problems") tab.append(el("span", { id: "problem-count", class: "problem-count" }));
     tab.addEventListener("click", () => showView(view.id));
+    tab.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showViewMenu(e.clientX, e.clientY, view.id, t);
+    });
     tab.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData(VIEW_TYPE, view.id);
       e.dataTransfer.effectAllowed = "move";
@@ -419,6 +426,40 @@ function putView(id, region, before) {
   else if (!before) strip.append(n.tab);
   body.append(n.pane);
   n.region = region;
+}
+
+// Right-click a view's tab: "Move to" lists the panels the view is not in now.
+let viewMenu = null;
+function showViewMenu(x, y, id, t) {
+  viewMenu?.remove();
+  const current = viewNodes.get(id)?.region;
+  const menu = el("div", { class: "tab-menu", role: "menu" });
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  menu.append(el("div", { class: "tab-menu-head" }, t("moveTo")));
+  const labels = { primary: t("togglePrimary"), secondary: t("toggleSecondary"), panel: t("panel") };
+  const close = () => {
+    menu.remove();
+    viewMenu = null;
+    document.removeEventListener("pointerdown", dismiss, true);
+    document.removeEventListener("keydown", onKey, true);
+  };
+  for (const region of REGIONS) {
+    if (region === current) continue;
+    const item = el("button", { type: "button", role: "menuitem" }, labels[region]);
+    item.addEventListener("click", () => {
+      close();
+      moveView(id, region, null);
+    });
+    menu.append(item);
+  }
+  const dismiss = (e) => { if (!menu.contains(e.target)) close(); };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  document.body.append(menu);
+  viewMenu = menu;
+  document.addEventListener("pointerdown", dismiss, true);
+  document.addEventListener("keydown", onKey, true);
+  menu.querySelector("button")?.focus();
 }
 
 // Move a view to a region, before a tab, and show it there.
