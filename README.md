@@ -92,6 +92,13 @@ The versions are pinned in `vendor-src/package.json`. Commit the regenerated `ve
   label in its first lines (`# sw: <label>`, and optionally `# en: <label>` for `?lugha=en`).
   `samples/manifest.json` is generated from those files: after adding or relabelling a sample, run
   `python3 scripts/gen_samples.py` and commit the result. CI fails if it is stale.
+  A sample that drives the virtual board also scripts its pin levels with `# in: <saa> <pini>
+  <0|1>` lines (clock in milliseconds); the page sends them with the run.
+- The **virtual board** (Bodi pepe) panel shows the pins, the clock and the event list of a run.
+  The engine reports each pin write, pin read and clock step as an event: a tagged console line
+  (`\u0001ASILI-EVT <json>`, from `core/evaluator/src/platform.rs`), which `worker.js` passes to the
+  page as a `tukio` message. The events come from Asili's `ubao` builtins (`ubao_andika`,
+  `ubao_soma`, `ubao_subiri`, `ubao_saa`); pin calls need `#[wazi]`.
 - The editor uses a minimal `StreamLanguage` syntax-highlighting mode for Asili (keywords/types/
   strings/comments), not a real parser. Its keyword and type lists (between `const KEYWORDS` and
   `// </generated>` in `main.js`) are generated from Asili's compiler; CI checks them against
