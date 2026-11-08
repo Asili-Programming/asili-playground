@@ -1985,7 +1985,8 @@ async function loadSamples() {
 
 // Wire the sidebar controls (they exist once the shell is rendered).
 document.body.addEventListener("click", (e) => {
-  const id = e.target?.id;
+  // The buttons hold SVG icons, so a click usually lands on an icon path: find the button from there.
+  const id = e.target?.closest?.("#explorer-new-file, #explorer-new-folder, #explorer-collapse")?.id;
   const p = activeProject();
   if (id === "explorer-new-file" && p) newItemIn(p, "", "file");
   if (id === "explorer-new-folder" && p) newItemIn(p, "", "folder");
