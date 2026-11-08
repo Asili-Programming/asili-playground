@@ -317,6 +317,7 @@ export function refreshMenus() {
   const all = [
     ...[...registry.menus.values()].flatMap((m) => m.items),
     ...registry.toolbar.values(),
+    ...registry.tabEnd.values(),
   ];
   for (const item of all) {
     const button = document.getElementById(item.id);

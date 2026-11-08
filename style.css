@@ -400,3 +400,8 @@ body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
 .tab-end-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
 .tab-end-btn:hover { background: var(--hover); color: var(--text); }
 .tab-end-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- Status bar: the language switch, at the right corner ---------------------------------- */
+.statusbar .lang-switch { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; color: var(--accent); text-decoration: none; }
+.statusbar .lang-switch:hover { text-decoration: underline; }
+.tab-end-btn.danger { color: #ff8a8a; }

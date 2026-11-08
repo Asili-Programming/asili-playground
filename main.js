@@ -258,14 +258,25 @@ addActivity({ id: "act-board", title: "board", icon: `<svg viewBox="0 0 24 24" w
 addActivity({ id: "act-problems", title: "problems", icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/></svg>`, order: 30, run: () => runCommand("view.problems") });
 addActivity({ id: "act-palette", title: "menuPalette", icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l5 5-5 5M12 17h8"/></svg>`, order: 40, run: () => runCommand("palette.open") });
 
-addToolbarItem({ id: "run-btn", label: "run", className: "primary", order: 10,
+// Run and Stop are icons at the right end of the tab row.
+const PLAY_ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>`;
+const STOP_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" fill="currentColor"/></svg>`;
+addTabEndItem({ id: "run-btn", title: "run", icon: PLAY_ICON, order: 10,
   run: () => run(), enabled: () => engineReady && !busy });
-addToolbarItem({ id: "stop-btn", label: "stop", className: "danger", order: 20,
+addTabEndItem({ id: "stop-btn", title: "stop", icon: STOP_ICON, order: 20,
   run: () => stop(), enabled: () => busy });
 // The language switch: an icon at the right end of the tab row; its title names the other language.
-addTabEndItem({ id: "lugha-switch", title: "switchLabel", order: 10, optional: true,
-  icon: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>`,
-  run: () => { location.href = `?lugha=${T.switchTo}`; } });
+// The language switch sits at the right end of the status bar; its label names the other language.
+addStatusItem({ id: "lugha-switch", order: 90, optional: true, render(slot, t) {
+  const link = document.createElement("a");
+  link.id = "lugha-switch";
+  link.className = "lang-switch";
+  link.href = `?lugha=${T.switchTo}`;
+  link.title = t("switchLabel");
+  link.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>`;
+  link.append(document.createTextNode(` ${t("switchLabel")}`));
+  slot.append(link);
+} });
 
 addSidebarSection("primary", {
   id: "project", title: "projectSection", order: 20,
