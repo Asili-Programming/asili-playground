@@ -136,7 +136,7 @@ export function renderShell(root, { t, embed = false }) {
     button.addEventListener("click", () => item.run?.());
     activity.append(button);
   }
-  bodyRow.append(activity);
+  if (activity.childElementCount) bodyRow.append(activity); // no icon column without icons
   const workbench = el("div", { class: "workbench" });
   workbench.append(regionNode("primary", t));
   workbench.append(splitter("primary"));
@@ -153,8 +153,10 @@ export function renderShell(root, { t, embed = false }) {
     tabEnd.append(button);
   }
   tabbar.append(tabEnd);
-  main.append(
-    tabbar,
+  main.append(tabbar);
+  // The main area's view: the editor, with the notice above it.
+  main.append(el("div", { class: "region-body main-body" }, undefined));
+  main.lastChild.append(
     el("div", { id: "notice", class: "notice", role: "alert", hidden: true }),
     el("div", { id: "editor" }),
   );
