@@ -961,7 +961,26 @@ function isDirty(d) {
   return !!p && fileStatus(p, d.file, d.text) === "modified";
 }
 
+// Each open file has a document machine (states.js): "modified" while its text differs from the
+// saved text, "clean" otherwise, "closed" once it has left the tabs. Derived from the data, like the
+// workspace and the Explorer, so every tab change keeps them in step.
+function syncDocStates() {
+  for (const d of docs) {
+    d.machine ??= createMachine("document", MACHINES.document);
+    d.machine.setDerived(isDirty(d) ? "modified" : "clean");
+  }
+  syncStates();
+}
+
+// Remove an open file from the tabs; its document machine ends in "closed".
+function forgetDoc(d) {
+  d.machine?.setDerived("closed");
+  const i = docs.indexOf(d);
+  if (i >= 0) docs.splice(i, 1);
+}
+
 function renderTabs() {
+  syncDocStates();
   const bar = document.getElementById("doc-tabs");
   bar.replaceChildren();
   docs.forEach((d, index) => {
@@ -1067,7 +1086,7 @@ function closeDoc(d) {
   if (!d) return;
   const i = docs.indexOf(d);
   if (i < 0) return;
-  docs.splice(i, 1);
+  forgetDoc(d);
   if (d === activeDoc) {
     activeDoc = null;
     if (docs.length) activate(docs[Math.max(0, i - 1)]);
@@ -1197,7 +1216,7 @@ function askToSaveCurrent(nextName, next) {
 
 // Drop the open files of a workspace whose changes are not kept.
 function discardUnsaved(p) {
-  for (let i = docs.length - 1; i >= 0; i--) if (docs[i].projectId === p.id) docs.splice(i, 1);
+  for (const d of docs.filter((x) => x.projectId === p.id)) forgetDoc(d);
   activeDoc = null;
   editor.setState(state0());
   renderTabs();
@@ -2239,7 +2258,7 @@ function closeWorkspace() {
 
 function performCloseWorkspace(p) {
   const removed = docs.filter((x) => x.projectId === p.id);
-  for (const d of removed) docs.splice(docs.indexOf(d), 1);
+  for (const d of removed) forgetDoc(d);
   if (removed.includes(activeDoc)) activeDoc = null;
   if (activeProjectId === p.id) activeProjectId = null;
   persistProjects();
@@ -2253,7 +2272,7 @@ function performCloseWorkspace(p) {
 function performDeleteWorkspace(p) {
   const wasOpen = activeProjectId === p.id;
   const removed = docs.filter((x) => x.projectId === p.id);
-  for (const d of removed) docs.splice(docs.indexOf(d), 1);
+  for (const d of removed) forgetDoc(d);
   if (removed.includes(activeDoc)) activeDoc = null;
   projects = projects.filter((x) => x.id !== p.id);
   lastRemoved = { kind: "project", project: p };

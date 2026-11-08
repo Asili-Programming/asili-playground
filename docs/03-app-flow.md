@@ -125,6 +125,11 @@ stateDiagram-v2
   Closed --> [*]
 ```
 
+The machine is `document` in `states.js`. Clean and Modified are derived on every tab change from the
+file's text against its saved text (`syncDocStates` in `main.js`); Closed is set when the file leaves
+the tabs (`forgetDoc`). Closing is not a machine state: it is the warning flag on the file (`closeArmed`),
+which lasts 4 s.
+
 - Exactly one file is **Active**: its text is the editor's. Switching tabs keeps each file's undo
   history and cursor.
 - Closing the last open file moves the main area to its **empty state**.
