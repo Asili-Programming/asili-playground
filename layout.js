@@ -62,6 +62,7 @@ export function addToolbarItem(item) { add(registry.toolbar, item, "toolbar item
 // be dragged to another region; the page remembers where each one is.
 export function addView(view) {
   if (!REGIONS.includes(view.region)) throw new Error(`layout: no region '${view.region}'`);
+  // menu: true lists the view in the View menu; keyHint is the key shown beside it.
   add(registry.views, view, "view");
 }
 export function addSidebarSection(side, section) { addView({ ...section, region: side }); }
@@ -107,7 +108,8 @@ export function renderShell(root, { t, embed = false }) {
     const details = el("details", { class: "menu", id: `menu-${menu.id}` });
     details.append(el("summary", { "data-i18n": menu.label }, t(menu.label)));
     const items = el("div", { class: "menu-items" });
-    appendMenuItems(items, menu.items.filter(keep), details, t);
+    const entries = typeof menu.items === "function" ? menu.items() : menu.items;
+    appendMenuItems(items, entries.filter(keep), details, t);
     details.append(items);
     menubar.append(details);
   }
@@ -437,6 +439,11 @@ function updateRegions() {
     const count = document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`).length;
     if (node) node.hidden = count === 0;
   }
+}
+
+// The views the View menu lists, in their order.
+export function menuViews() {
+  return [...registry.views.values()].filter((v) => v.menu).sort(byOrder);
 }
 
 // Show one view: its tab is selected, its pane shown, and its region made visible.

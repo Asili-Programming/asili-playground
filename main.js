@@ -80,6 +80,8 @@ const STRINGS = {
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
     newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha",
+    openView: "Fungua mwonekano…", appearance: "Mwonekano wa skrini", editorLayout: "Mpangilio wa mhariri",
+    singleEditor: "Mhariri mmoja", wordWrap: "Kufunga maneno",
     openRecent: "Fungua hivi karibuni", saveBefore: "Hifadhi mabadiliko ya", beforeOpening: "kabla ya kufungua",
     dontSave: "Usihifadhi", cancel: "Ghairi",
     menuTools: "Zana", lintFile: "Kagua faili", formatted: "Msimbo umepangwa", formatUnchanged: "Msimbo uko sawa tayari",
@@ -135,6 +137,8 @@ const STRINGS = {
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
     newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language",
+    openView: "Open View…", appearance: "Appearance", editorLayout: "Editor Layout",
+    singleEditor: "Single editor", wordWrap: "Word Wrap",
     openRecent: "Open recent", saveBefore: "Save changes to", beforeOpening: "before opening",
     dontSave: "Don't save", cancel: "Cancel",
     menuTools: "Tools", lintFile: "Lint file", formatted: "Code formatted", formatUnchanged: "Code is already formatted",
@@ -267,14 +271,25 @@ addMenu({
     { id: "menu-stop-btn", label: "stop", command: "run.stop" },
   ],
 });
+// The View menu, built from the registries: the palette and Open View, the appearance and layout
+// submenus, the views that are in the menu (each with its key), and word wrap.
 addMenu({
   id: "mwonekano", label: "menuView", order: 40, optional: true,
-  items: [
-    { id: "toggle-primary", label: "togglePrimary", command: "view.primary" },
-    { id: "toggle-secondary", label: "toggleSecondary", command: "view.secondary" },
-    { id: "toggle-panel", label: "togglePanel", command: "view.panel" },
-    { id: "menu-theme", label: "theme", command: "view.theme" },
-    { id: "menu-palette", label: "menuPalette", command: "palette.open" },
+  items: () => [
+    { id: "menu-palette", label: "menuPalette", keyHint: "Ctrl+Shift+P", run: () => openPalette() },
+    { id: "menu-open-view", label: "openView", run: () => openViewList() },
+    { separator: true },
+    { id: "menu-appearance", label: "appearance", submenu: [
+      { id: "menu-theme", label: "theme", command: "view.theme" },
+      { id: "menu-wrap", label: "wordWrap", keyHint: "Alt+Z", run: () => toggleWordWrap() },
+      { id: "toggle-primary", label: "togglePrimary", keyHint: "Ctrl+B", command: "view.primary" },
+      { id: "toggle-panel", label: "togglePanel", keyHint: "Ctrl+J", command: "view.panel" },
+    ] },
+    { id: "menu-layout", label: "editorLayout", submenu: [
+      { id: "menu-layout-single", label: "singleEditor", run: () => {} },
+    ] },
+    { separator: true },
+    ...menuViews().map((v) => ({ id: `menu-view-${v.id}`, label: v.title, keyHint: v.keyHint, run: () => showView(v.id) })),
   ],
 });
 addMenu({
@@ -318,7 +333,7 @@ const ICON_NEW_FILE = svgIcon('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h1
 const ICON_NEW_FOLDER = svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>');
 const ICON_COLLAPSE = svgIcon('<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>');
 addSidebarSection("primary", {
-  id: "files", title: "explorer", order: 10, icon: ICON_FOLDER,
+  id: "files", title: "explorer", order: 10, icon: ICON_FOLDER, menu: true, keyHint: "Ctrl+Shift+E",
   render(container, t) {
     container.innerHTML = `
       <div class="explorer-toolbar">
@@ -332,7 +347,7 @@ addSidebarSection("primary", {
   },
 });
 addSidebarSection("secondary", {
-  id: "board", title: "board", order: 10, optional: false, icon: ICON_BOARD,
+  id: "board", title: "board", order: 10, optional: false, icon: ICON_BOARD, menu: true, keyHint: "Alt+B",
   render(container, t) {
     container.innerHTML = `
       <div class="board-body">
@@ -345,7 +360,7 @@ addSidebarSection("secondary", {
 });
 
 addPanel({
-  id: "output", title: "output", order: 10, icon: ICON_OUTPUT,
+  id: "output", title: "output", order: 10, icon: ICON_OUTPUT, menu: true,
   render(body) {
     const pre = document.createElement("pre");
     pre.id = "output";
@@ -353,7 +368,7 @@ addPanel({
   },
 });
 addPanel({
-  id: "problems", title: "problems", order: 20, icon: ICON_PROBLEMS,
+  id: "problems", title: "problems", order: 20, icon: ICON_PROBLEMS, menu: true, keyHint: "Ctrl+Shift+M",
   render(body) {
     const list = document.createElement("ol");
     list.id = "problems";
@@ -585,6 +600,8 @@ const findField = StateField.define({
   provide: (field) => EditorView.decorations.from(field),
 });
 const themeCell = new Compartment();
+const wrapCell = new Compartment();
+let wrapOn = false;
 const darkThemeExtension = () => (document.body.classList.contains("theme-light") ? [] : oneDark);
 
 // ---- Editor ---------------------------------------------------------------------------------
@@ -605,7 +622,7 @@ const state0 = () => EditorState.create({
     findField,
     // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
     EditorView.theme({ ".cm-gutters": { color: "#9aa2b5" } }),
-    EditorView.lineWrapping,
+    wrapCell.of(wrapOn ? EditorView.lineWrapping : []),
     diagnosticField,
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
@@ -2322,6 +2339,20 @@ async function pasteFromClipboard() {
   } catch {
     note(T.error, "error");
   }
+}
+
+// Word wrap: the editor's lines wrap, or run on.
+function toggleWordWrap() {
+  wrapOn = !wrapOn;
+  editor.dispatch({ effects: wrapCell.reconfigure(wrapOn ? EditorView.lineWrapping : []) });
+}
+
+// View > Open View…: every view, to show it.
+function openViewList() {
+  openList({
+    placeholder: T.openView,
+    items: menuViews().map((v) => ({ label: v.title, detail: v.keyHint ?? "", run: () => showView(v.id) })),
+  });
 }
 
 // ---- Start ----------------------------------------------------------------------------------
