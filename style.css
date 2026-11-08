@@ -294,13 +294,11 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
 /* The app bar is for phones only (below); on a desktop it is not shown, whatever the header rule says. */
 .appbar { display: none; margin: 0; padding: 0; border: 0; }
 
-/* The scrim is hidden on a desktop: it is only for the phone sheets (below). */
-.scrim { display: none; }
 /* The phone's navigation bar is for phones only (see the block below). */
 .mobile-nav { display: none; }
 
 /* ---- Phones (under 720 px): the editor fills the screen. The sidebars and the bottom panel are sheets
-   over it, opened and closed by the same toggles as on a desktop (the scrim closes them). Touch targets
+   over it, opened and closed by the same toggles as on a desktop (Touch targets
    are at least 40 px, and the editor text is 16 px so the page does not zoom when a file is focused. */
 @media (max-width: 719px) {
   html, body { height: 100%; overflow: hidden; }
@@ -321,7 +319,7 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
   .activitybar { width: 3rem; }
   .activity-btn { width: 3rem; height: 3rem; }
 
-  /* Sidebars and bottom panel: sheets over the editor. */
+  /* Sidebars and the bottom panel: one view at a time, full screen (below). */
   .body-row { padding-bottom: 3.2rem; }
   .mobile-nav { display: flex; position: fixed; left: 0; right: 0; bottom: 1.8rem; height: 3.2rem; z-index: 65;
     background: var(--panel); border-top: 1px solid var(--border); }
@@ -330,14 +328,7 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
   .mobile-nav-btn svg { width: 20px; height: 20px; }
   .mobile-nav-btn[aria-current="true"] { color: var(--accent); }
   .mobile-nav-text { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #primary { position: fixed; top: 2.6rem; bottom: 5rem; left: 3rem; width: min(84vw, 20rem); z-index: 60;
-    background: var(--bg); box-shadow: 0 0 18px rgba(0, 0, 0, 0.45); overflow: auto; }
-  #board-pane { position: fixed; top: 2.6rem; bottom: 5rem; right: 0; width: min(84vw, 20rem); z-index: 60;
-    background: var(--bg); box-shadow: 0 0 18px rgba(0, 0, 0, 0.45); overflow: auto; }
-  #panel { position: fixed; left: 0; right: 0; bottom: 5rem; height: min(52vh, 26rem); z-index: 55;
-    background: var(--bg); border-top: 1px solid var(--border); box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.35); }
-  .scrim { position: fixed; inset: 0; z-index: 58; background: rgba(0, 0, 0, 0.35); }
-  .ide.sheet-open .scrim { display: block; }
+  #primary, #board-pane, #panel { position: fixed; top: 3rem; bottom: 5rem; left: 0; right: 0; z-index: 60; background: var(--bg); overflow: auto; }
 
   /* The editor and its tabs: touch-sized. */
   .main { min-width: 0; min-height: 0; }
@@ -370,7 +361,6 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
   /* The phone's own layout (the desktop's menu bar, tab row and scrim are not shown): an app bar on top,
      the editor or one full-screen view in the middle, and the bottom bar to switch between them. */
   .menubar, .tabbar, .region-strip { display: none !important; }
-  .scrim { display: none !important; }
   .appbar { display: flex; align-items: center; gap: 0.2rem; height: 3rem; padding: 0 0.4rem;
     background: var(--panel); border-bottom: 1px solid var(--border); }
   .appbar-title { flex: 1 1 auto; min-width: 0; min-height: 2.75rem; padding: 0 0.5rem; border: 0; background: transparent;
@@ -381,9 +371,6 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
   .appbar-btn:disabled { opacity: 0.35; }
   #appbar-run svg { width: 22px; height: 22px; }
   .ide.sheet-open .main-body { display: none; }
-  #primary { top: 3rem; left: 0; right: 0; width: auto; }
-  #board-pane { top: 3rem; left: 0; right: 0; width: auto; }
-  #panel { top: 3rem; height: auto; }
   /* Board and Problems, full screen: rows a finger can hit. */
   .problems { padding: 0.6rem 1rem 0.6rem 2.2rem; font-size: 0.95rem; }
   .problems li { min-height: 2.75rem; display: flex; align-items: center; }

@@ -174,13 +174,6 @@ export function renderShell(root, { t, embed = false }) {
   );
   root.append(appbar);
   root.append(bodyRow);
-  // On a phone the sidebars and the bottom panel are sheets: a tap on the scrim closes them all.
-  const scrim = el("div", { class: "scrim", id: "scrim", "aria-hidden": "true" });
-  scrim.addEventListener("click", () => {
-    for (const region of REGIONS) if (hasToggle(region)) setToggle(region, false);
-    else setRegionVisible(region, false);
-  });
-  root.append(scrim);
 
   // Status bar.
   const statusbar = el("footer", { class: "statusbar" });
