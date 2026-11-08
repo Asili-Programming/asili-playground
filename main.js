@@ -2,6 +2,11 @@
 // editor and Stop can end it. Everything here is relative to this file, so the same files work
 // at /playground/, at a self-hosted root, and on 127.0.0.1:8080.
 
+import { encodeShare, decodeShare } from "./share.js";
+import {
+  addMenu, addToolbarItem, addSidebarSection, addPanel, addStatusItem, renderShell, setBrand,
+  showPanel, setRegionVisible, regionVisible, refreshMenus,
+} from "./layout.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
@@ -28,6 +33,14 @@ const STRINGS = {
     switchLabel: "English", switchTo: "en",
     board: "Bodi pepe", clock: "Saa (ms)", pin: "Pini", events: "Matukio",
     noEvents: "Hakuna tukio bado",
+    share: "Shiriki", linkCopied: "Kiungo kimenakiliwa", linkInBar: "Kiungo kiko kwenye upau wa anwani",
+    linkFailed: "Kiungo hakikuundwa", linkBad: "Kiungo hiki hakisomeki",
+    menuFile: "Faili", menuEdit: "Hariri", menuRun: "Endesha", menuView: "Mwonekano", menuHelp: "Msaada",
+    closeTab: "Funga kichupo", format: "Nadhifisha", togglePrimary: "Upau wa kushoto",
+    toggleSecondary: "Upau wa kulia (Bodi pepe)", togglePanel: "Paneli ya chini", wiki: "Wiki ya Asili",
+    explorer: "Faili", samples: "Mifano", openFiles: "Mafaili yaliyo wazi", editor: "Msimbo",
+    panel: "Paneli ya chini", problems: "Matatizo", noProblems: "Hakuna makosa",
+    subtitle: "Uwanja wa Kuchezea",
   },
   en: {
     title: "Asili — Playground",
@@ -40,6 +53,14 @@ const STRINGS = {
     switchLabel: "Kiswahili", switchTo: "sw",
     board: "Virtual board", clock: "Clock (ms)", pin: "Pin", events: "Events",
     noEvents: "No events yet",
+    share: "Share", linkCopied: "Link copied", linkInBar: "The link is in the address bar",
+    linkFailed: "Could not make the link", linkBad: "This link could not be read",
+    menuFile: "File", menuEdit: "Edit", menuRun: "Run", menuView: "View", menuHelp: "Help",
+    closeTab: "Close tab", format: "Format", togglePrimary: "Left sidebar",
+    toggleSecondary: "Right sidebar (Virtual board)", togglePanel: "Bottom panel", wiki: "Asili wiki",
+    explorer: "Explorer", samples: "Samples", openFiles: "Open files", editor: "Code",
+    panel: "Bottom panel", problems: "Problems", noProblems: "No problems",
+    subtitle: "Playground",
   },
 };
 const T = STRINGS[lang];
@@ -52,9 +73,131 @@ for (const el of document.querySelectorAll("[data-i18n]")) {
 for (const el of document.querySelectorAll("[data-i18n-title]")) {
   el.title = T[el.dataset.i18nTitle];
 }
-const switchLink = document.getElementById("lugha-switch");
-switchLink.textContent = T.switchLabel;
-switchLink.href = `?lugha=${T.switchTo}`;
+// Open documents (see "Editor tabs" below), declared before the shell reads them.
+const docs = []; // { id, name, text, inputs, error }
+let activeDoc = null;
+
+// ---- The IDE shell ---------------------------------------------------------------------------
+// The layout is data (layout.js). Each feature registers its menus, toolbar buttons, sidebar
+// sections, bottom-panel tabs and status items below; renderShell() builds the page from them.
+// Adding a feature is adding an entry here.
+setBrand({ logo: "logo-mark.svg", title: "Asili", subtitle: "subtitle" });
+const isEmbed = new URLSearchParams(location.search).get("embed") === "1";
+document.body.classList.toggle("embed", isEmbed);
+
+addMenu({
+  id: "faili", label: "menuFile", order: 10, optional: true,
+  items: [
+    { id: "share-btn", label: "share", optional: true, run: () => shareCurrent() },
+    { id: "close-tab-btn", label: "closeTab", optional: true,
+      run: () => closeDoc(activeDoc), enabled: () => docs.length > 1 },
+  ],
+});
+addMenu({
+  id: "hariri", label: "menuEdit", order: 20,
+  items: [
+    { id: "clear-btn", label: "clear" },
+    { id: "format-btn", label: "format", enabled: () => false },
+  ],
+});
+addMenu({
+  id: "endesha", label: "menuRun", order: 30,
+  items: [
+    { id: "menu-run-btn", label: "run", run: () => run(), enabled: () => engineReady && !busy },
+    { id: "menu-stop-btn", label: "stop", run: () => stop(), enabled: () => busy },
+  ],
+});
+addMenu({
+  id: "mwonekano", label: "menuView", order: 40, optional: true,
+  items: [
+    { id: "toggle-primary", label: "togglePrimary",
+      run: () => setRegionVisible("primary", !regionVisible("primary")) },
+    { id: "toggle-secondary", label: "toggleSecondary",
+      run: () => setRegionVisible("secondary", !regionVisible("secondary")) },
+    { id: "toggle-panel", label: "togglePanel",
+      run: () => setRegionVisible("panel", !regionVisible("panel")) },
+  ],
+});
+addMenu({
+  id: "msaada", label: "menuHelp", order: 50, optional: true,
+  items: [
+    { id: "wiki-link", label: "wiki",
+      run: () => window.open("https://github.com/Asili-Programming/Asili/wiki", "_blank", "noopener") },
+  ],
+});
+
+addToolbarItem({ id: "run-btn", label: "run", className: "primary", order: 10,
+  run: () => run(), enabled: () => engineReady && !busy });
+addToolbarItem({ id: "stop-btn", label: "stop", className: "danger", order: 20,
+  run: () => stop(), enabled: () => busy });
+addToolbarItem({ id: "lugha-switch", label: "switchLabel", order: 90, optional: true,
+  run: () => { location.href = `?lugha=${T.switchTo}`; } });
+
+addSidebarSection("primary", {
+  id: "samples", title: "samples", order: 10,
+  render(container, t) {
+    const picker = document.createElement("select");
+    picker.id = "sample-picker";
+    picker.title = t("sampleTitle");
+    picker.addEventListener("change", () => openSample(picker.value));
+    container.append(picker);
+  },
+});
+addSidebarSection("primary", {
+  id: "open", title: "openFiles", order: 20,
+  render(container) {
+    const list = document.createElement("ul");
+    list.id = "open-files";
+    list.className = "open-files";
+    container.append(list);
+  },
+});
+addSidebarSection("secondary", {
+  id: "board", title: "board", order: 10, optional: false,
+  render(container, t) {
+    container.innerHTML = `
+      <div class="board-body">
+        <div class="board-clock">${t("clock")} <output id="board-clock">0</output></div>
+        <ol id="board-pins" class="board-pins" aria-label="${t("pin")}"></ol>
+        <div class="board-events-title">${t("events")}</div>
+        <ol id="board-events" class="board-events"><li class="board-empty">${t("noEvents")}</li></ol>
+      </div>`;
+  },
+});
+
+addPanel({
+  id: "output", title: "output", order: 10,
+  render(body) {
+    const pre = document.createElement("pre");
+    pre.id = "output";
+    body.append(pre);
+  },
+});
+addPanel({
+  id: "problems", title: "problems", order: 20,
+  render(body) {
+    const list = document.createElement("ol");
+    list.id = "problems";
+    list.className = "problems";
+    body.append(list);
+  },
+});
+
+addStatusItem({ id: "state", order: 10, render(slot) {
+  slot.id = "status";
+  slot.className = "status";
+  slot.setAttribute("role", "status");
+  slot.setAttribute("aria-live", "polite");
+} });
+addStatusItem({ id: "cursor", order: 20, render(slot) { slot.id = "cursor-pos"; } });
+addStatusItem({ id: "file", order: 30, render(slot) { slot.id = "file-name"; } });
+
+renderShell(document.querySelector(".ide"), { t: (key) => T[key] ?? key, embed: isEmbed });
+if (isEmbed) {
+  setRegionVisible("primary", false);
+  setRegionVisible("secondary", false);
+}
+showPanel("output");
 
 // Minimal StreamLanguage-based highlighting mode for Asili — comments (#, ///), strings, numbers,
 // keywords and built-in type names. Not a real parser (no LSP/diagnostics), just enough to make
@@ -177,6 +320,7 @@ const state0 = () => EditorState.create({
     diagnosticField,
     EditorView.updateListener.of((update) => {
       if (update.docChanged) scheduleCheck();
+      if (update.docChanged || update.selectionSet) updateCursor(update.state);
     }),
     EditorView.contentAttributes.of({ "aria-label": T.editor }),
   ],
@@ -193,6 +337,10 @@ const runBtn = document.getElementById("run-btn");
 const stopBtn = document.getElementById("stop-btn");
 const clearBtn = document.getElementById("clear-btn");
 const samplePicker = document.getElementById("sample-picker");
+const params = new URLSearchParams(location.search);
+const sampleId = params.get("sample");
+// ?embed=1: editor, Run and output only, for an <iframe> (see style.css, body.embed).
+document.body.classList.toggle("embed", params.get("embed") === "1");
 const notice = document.getElementById("notice");
 // The notice is an overlay (see style.css), so showing it never moves the editor.
 
@@ -284,6 +432,7 @@ function onWorkerMessage(e) {
     engineReady = true;
     showState("ready");
     setStatus(T.ready, "ok");
+    refreshMenus();
     requestCheck();
   } else if (m.type === "out") {
     appendOutput(m.text, m.err);
@@ -292,7 +441,9 @@ function onWorkerMessage(e) {
   } else if (m.type === "diag") {
     if (m.seq !== checkSeq) return;
     try {
-      editor.dispatch({ effects: setDiagnostics.of(JSON.parse(m.json)) });
+      const items = JSON.parse(m.json);
+      editor.dispatch({ effects: setDiagnostics.of(items) });
+      renderProblems(items);
     } catch {
       // A malformed result only means no marks; the run still reports errors in the output.
     }
@@ -324,6 +475,7 @@ function finishRun(text, kind) {
   runBtn.hidden = false;
   stopBtn.hidden = true;
   notice.hidden = true;
+  refreshMenus();
   setStatus(text, kind);
   runBtn.disabled = false;
 }
@@ -332,6 +484,7 @@ function run() {
   if (!engineReady || busy) return;
   busy = true;
   outputEl.textContent = "";
+  refreshMenus();
   resetBoard();
   runBtn.hidden = true;
   stopBtn.hidden = false;
@@ -351,6 +504,7 @@ function stop() {
   worker = null;
   busy = false;
   appendOutput(T.stopped, true);
+  refreshMenus();
   runBtn.hidden = false;
   stopBtn.hidden = true;
   setStatus(T.stopped, "error");
@@ -360,33 +514,166 @@ function stop() {
 // ---- Samples --------------------------------------------------------------------------------
 // samples/manifest.json lists {file, label, label_en}; the label follows the interface language.
 let currentInputs = [];
+let samplesById = new Map();
+
+// ---- Editor tabs: one document per open program ----------------------------------------------
+// Each document keeps its text and its scripted pin levels. The editor shows the active one;
+// switching saves the text being edited and loads the other (undo history is per session only).
+function renderTabs() {
+  const bar = document.getElementById("doc-tabs");
+  bar.replaceChildren();
+  for (const d of docs) {
+    const tab = document.createElement("div");
+    tab.className = "doc-tab";
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(d === activeDoc));
+    tab.dataset.doc = d.id;
+    if (d.error) {
+      const dot = document.createElement("span");
+      dot.className = "dot-error";
+      dot.textContent = "●";
+      tab.append(dot);
+    }
+    tab.append(document.createTextNode(d.name));
+    tab.addEventListener("click", () => activate(d));
+    bar.append(tab);
+  }
+  const list = document.getElementById("open-files");
+  list.replaceChildren(...docs.map((d) => {
+    const li = document.createElement("li");
+    li.textContent = d.name;
+    li.setAttribute("aria-current", String(d === activeDoc));
+    li.addEventListener("click", () => activate(d));
+    return li;
+  }));
+}
+
+function openDoc(id, name, text, inputs = []) {
+  let d = docs.find((x) => x.id === id);
+  if (!d) {
+    d = { id, name, text, inputs, error: false };
+    docs.push(d);
+  }
+  activate(d);
+}
+
+function activate(d) {
+  if (d === activeDoc) return;
+  if (activeDoc) activeDoc.text = editor.state.doc.toString();
+  activeDoc = d;
+  currentInputs = d.inputs;
+  editor.setState(state0());
+  editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: d.text } });
+  renderProblems([]);
+  renderTabs();
+  refreshMenus();
+}
+
+function closeDoc(d) {
+  if (!d || docs.length < 2) return;
+  const i = docs.indexOf(d);
+  docs.splice(i, 1);
+  if (d === activeDoc) {
+    activeDoc = null;
+    activate(docs[Math.max(0, i - 1)]);
+  } else {
+    renderTabs();
+  }
+  refreshMenus();
+}
+
+async function openSample(file) {
+  const sample = samplesById.get(file);
+  const res = await fetch(`samples/${file}`);
+  openDoc(file, file, await res.text(), sample?.inputs ?? []);
+}
+
+// ---- Problems: the diagnostics of the active document -----------------------------------------
+function renderProblems(items) {
+  const list = document.getElementById("problems");
+  const count = document.getElementById("problem-count");
+  list.replaceChildren();
+  if (items.length === 0) {
+    const none = document.createElement("li");
+    none.className = "none";
+    none.textContent = T.noProblems;
+    list.append(none);
+  }
+  for (const d of items) {
+    const li = document.createElement("li");
+    li.textContent = `Ln ${d.line}: ${d.code} ${d.message}`;
+    li.addEventListener("click", () => goToLine(d.line));
+    list.append(li);
+  }
+  count.textContent = items.length ? String(items.length) : "";
+  if (activeDoc) {
+    activeDoc.error = items.length > 0;
+    renderTabs();
+  }
+}
+
+function goToLine(line) {
+  const doc = editor.state.doc;
+  if (!line || line < 1 || line > doc.lines) return;
+  editor.dispatch({ selection: { anchor: doc.line(line).from }, scrollIntoView: true });
+  editor.focus();
+}
+
+function updateCursor(state) {
+  const head = state.selection.main.head;
+  const line = state.doc.lineAt(head);
+  document.getElementById("cursor-pos").textContent = `Ln ${line.number}, Col ${head - line.from + 1}`;
+  document.getElementById("file-name").textContent = activeDoc?.name ?? "";
+}
+
+// Share: the program goes into the link's fragment (see share.js), so the server never sees it.
+async function shareCurrent() {
+  try {
+    const token = await encodeShare({ "kuu.as": editor.state.doc.toString() });
+    const url = `${location.origin}${location.pathname}?lugha=${lang}#k=${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setStatus(T.linkCopied, "ok");
+    } catch {
+      location.hash = `k=${token}`;
+      setStatus(T.linkInBar, "ok");
+    }
+  } catch {
+    setStatus(T.linkFailed, "error");
+  }
+}
 
 async function loadSamples() {
   const res = await fetch("samples/manifest.json");
   const manifest = await res.json();
   samplesById = new Map(manifest.map((sample) => [sample.file, sample]));
+  const picker = document.getElementById("sample-picker");
   for (const sample of manifest) {
     const opt = document.createElement("option");
     opt.value = sample.file;
     opt.textContent = (lang === "en" && sample.label_en) ? sample.label_en : sample.label;
-    samplePicker.appendChild(opt);
+    picker.appendChild(opt);
   }
-  if (manifest.length > 0) {
-    await loadSample(manifest[0].file);
+  // A share link (#k=) wins over the sample; ?sample=<id> picks the sample; otherwise the first.
+  let opened = false;
+  if (location.hash.startsWith("#k=")) {
+    try {
+      const files = await decodeShare(location.hash.slice(3));
+      const [name, text] = Object.entries(files)[0];
+      openDoc("link", name, text, []);
+      opened = true;
+    } catch {
+      setStatus(T.linkBad, "error");
+    }
+  }
+  if (!opened && manifest.length > 0) {
+    const sampleId = new URLSearchParams(location.search).get("sample");
+    const wanted = manifest.find((sample) => sample.id === sampleId) ?? manifest[0];
+    picker.value = wanted.file;
+    await openSample(wanted.file);
   }
 }
 
-let samplesById = new Map();
-
-async function loadSample(file) {
-  currentInputs = samplesById.get(file)?.inputs ?? [];
-  const res = await fetch(`samples/${file}`);
-  const text = await res.text();
-  editor.setState(state0());
-  editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text } });
-}
-
-samplePicker.addEventListener("change", () => loadSample(samplePicker.value));
 clearBtn.addEventListener("click", () => {
   outputEl.textContent = "";
 });
@@ -402,6 +689,8 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ---- Start ----------------------------------------------------------------------------------
+stopBtn.hidden = true;
+refreshMenus();
 resetBoard();
 if (typeof WebAssembly === "undefined" || typeof Worker === "undefined") {
   showState("unsupported", T.unsupported);
