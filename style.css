@@ -112,6 +112,8 @@ button:disabled {
   height: 100%;
   font-size: 14px;
 }
+/* The line numbers keep one width (room for 999 lines), so the text does not move when a file gains a digit. */
+#editor .cm-lineNumbers .cm-gutterElement { min-width: 4ch; }
 
 .output-header {
   display: flex;
