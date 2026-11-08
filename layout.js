@@ -165,6 +165,14 @@ export function renderShell(root, { t, embed = false }) {
   workbench.append(splitter("secondary"));
   workbench.append(regionNode("secondary", t));
   bodyRow.append(workbench);
+  // The app bar (phones only, see style.css): the open file, Run or Stop, and the menus as a sheet.
+  const appbar = el("header", { class: "appbar", id: "appbar" });
+  appbar.append(
+    el("button", { type: "button", class: "appbar-title", id: "appbar-title", "aria-haspopup": "dialog" }),
+    el("button", { type: "button", class: "appbar-btn", id: "appbar-run" }),
+    el("button", { type: "button", class: "appbar-btn", id: "appbar-more", "aria-label": t("menu"), "aria-haspopup": "dialog" }, "⋯"),
+  );
+  root.append(appbar);
   root.append(bodyRow);
   // On a phone the sidebars and the bottom panel are sheets: a tap on the scrim closes them all.
   const scrim = el("div", { class: "scrim", id: "scrim", "aria-hidden": "true" });
@@ -640,4 +648,57 @@ function updateMobileNav() {
     button.setAttribute("aria-current", String(shown));
   }
   nav.querySelector('[data-mobile="editor"]')?.setAttribute("aria-current", String(!anyShown));
+}
+
+// The menus as sheet groups: one group per menu, its items in order (a submenu's items are listed with
+// the submenu's name first). `t` turns a string key into its text.
+export function menuGroups(t) {
+  const flatten = (entries, prefix) => entries.flatMap((item) => {
+    if (item.separator) return [];
+    if (item.submenu) return flatten(item.submenu, `${prefix}${t(item.label)} › `);
+    return [{ id: item.id, label: `${prefix}${t(item.label)}`, keyHint: item.keyHint, toggle: item.toggle,
+      run: actionOf(item), enabled: enabledOf(item) }];
+  });
+  return [...registry.menus.values()].sort(byOrder).map((menu) => {
+    const entries = typeof menu.items === "function" ? menu.items() : menu.items;
+    return { title: t(menu.label), items: flatten(entries, "") };
+  });
+}
+
+// A bottom sheet: a title, then groups of buttons. A tap runs the button and closes the sheet; a tap
+// outside, or Escape, closes it. Toggles show their state as a check.
+let sheet = null;
+export function openActionSheet(title, groups) {
+  closeActionSheet();
+  const backdrop = el("div", { class: "sheet-backdrop" });
+  const panel = el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": title });
+  panel.append(el("div", { class: "sheet-grip", "aria-hidden": "true" }), el("div", { class: "sheet-title" }, title));
+  for (const group of groups) {
+    if (group.title) panel.append(el("div", { class: "sheet-group" }, group.title));
+    for (const item of group.items) {
+      const button = el("button", { type: "button", class: "sheet-item", role: item.toggle ? "menuitemcheckbox" : "menuitem" }, item.label);
+      if (item.toggle) button.setAttribute("aria-checked", String(isOn(item.toggle)));
+      if (item.keyHint) button.append(el("span", { class: "sheet-key" }, item.keyHint));
+      if (item.enabled && !item.enabled()) button.disabled = true;
+      button.addEventListener("click", () => {
+        closeActionSheet();
+        item.run?.();
+      });
+      panel.append(button);
+    }
+  }
+  const onKey = (e) => { if (e.key === "Escape") closeActionSheet(); };
+  backdrop.addEventListener("click", closeActionSheet);
+  document.addEventListener("keydown", onKey);
+  document.body.append(backdrop, panel);
+  sheet = { backdrop, panel, onKey };
+  panel.querySelector("button:not([disabled])")?.focus();
+}
+
+export function closeActionSheet() {
+  if (!sheet) return;
+  sheet.backdrop.remove();
+  sheet.panel.remove();
+  document.removeEventListener("keydown", sheet.onKey);
+  sheet = null;
 }
