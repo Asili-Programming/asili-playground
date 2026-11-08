@@ -41,13 +41,17 @@ jobs:
   notify-site:
     name: Rebuild the site
     needs: word-lists
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.SITE_DISPATCH_TOKEN != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       SITE_DISPATCH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
     steps:
       - name: Send repository_dispatch to the site
         run: |
+          if [ -z "$SITE_DISPATCH_TOKEN" ]; then
+            echo "SITE_DISPATCH_TOKEN is not set: skipping. The site rebuilds on its weekly schedule."
+            exit 0
+          fi
           curl -fsSL -X POST \
             -H "Authorization: Bearer $SITE_DISPATCH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
