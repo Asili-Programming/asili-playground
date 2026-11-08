@@ -7,6 +7,7 @@
 // run time (setRegionVisible, refreshMenus, showPanel).
 
 import { getCommand, isEnabled, runCommand } from "./commands.js";
+import { isOn } from "./settings.js";
 
 let brand = { logo: "", title: "Asili", subtitle: "" };
 
@@ -265,6 +266,7 @@ function appendMenuItems(container, entries, details, t, keep) {
       continue;
     }
     const button = el("button", { id: item.id, "data-menu-item": item.id }, t(item.label));
+    if (item.toggle) button.dataset.toggle = item.toggle;
     if (item.keyHint) button.append(el("span", { class: "menu-key" }, item.keyHint));
     const run = actionOf(item);
     button.addEventListener("click", () => {
@@ -500,8 +502,12 @@ export function regionVisible(region) {
 
 // Re-evaluate each menu item's `enabled()` (for example Close tab needs more than one open file).
 export function refreshMenus() {
+  // A toggle's menu item shows a dot while the toggle is on.
+  for (const button of document.querySelectorAll("[data-toggle]")) {
+    button.setAttribute("aria-checked", String(isOn(button.dataset.toggle)));
+  }
   const all = [
-    ...[...registry.menus.values()].flatMap((m) => m.items),
+    ...[...registry.menus.values()].flatMap((m) => (typeof m.items === "function" ? [] : m.items)),
     ...registry.toolbar.values(),
     ...registry.tabEnd.values(),
   ];

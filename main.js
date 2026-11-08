@@ -14,6 +14,7 @@ import {
 } from "./layout.js";
 import { registerCommand, runCommand, installKeys, openPalette, openList } from "./commands.js";
 import { saveSession, loadSession } from "./session.js";
+import { initSettings, defineToggle, setToggle, toggleSetting, isOn, onToggleChange } from "./settings.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
@@ -197,7 +198,8 @@ registerCommand({ id: "edit.cut", title: "Cut", run: () => { editor.focus(); doc
 registerCommand({ id: "edit.copy", title: "Copy", run: () => { editor.focus(); document.execCommand("copy"); } });
 registerCommand({ id: "edit.paste", title: "Paste", run: () => pasteFromClipboard() });
 registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAll(editor) });
-registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleTheme() });
+registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleSetting("light") });
+registerCommand({ id: "view.wrap", title: "Word wrap", key: "Alt+Z", inEditor: true, run: () => toggleSetting("wrap") });
 registerCommand({ id: "tools.format", title: "Format document", key: "Alt+Shift+F", inEditor: true,
   run: () => requestFormat(), enabled: () => engineReady && !busy });
 registerCommand({ id: "tools.lint", title: "Lint file", run: () => requestLint(),
@@ -212,11 +214,11 @@ registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEd
 registerCommand({ id: "run.stop", title: "Stop", key: "Shift+F5", inEditor: true, inInput: true,
   run: () => stop(), enabled: () => busy });
 registerCommand({ id: "view.primary", title: "Toggle primary sidebar", key: "Ctrl+B", inEditor: true,
-  run: () => setRegionVisible("primary", !regionVisible("primary")) });
+  run: () => toggleSetting("primary") });
 registerCommand({ id: "view.secondary", title: "Toggle secondary sidebar (Board)", key: "Alt+B", inEditor: true,
-  run: () => setRegionVisible("secondary", !regionVisible("secondary")) });
+  run: () => toggleSetting("secondary") });
 registerCommand({ id: "view.panel", title: "Toggle bottom panel", key: "Ctrl+J", inEditor: true,
-  run: () => setRegionVisible("panel", !regionVisible("panel")) });
+  run: () => toggleSetting("panel") });
 registerCommand({ id: "view.problems", title: "Show problems", key: "Ctrl+Shift+M", inEditor: true,
   run: () => { setRegionVisible("panel", true); showPanel("problems"); } });
 registerCommand({ id: "view.explorer", title: "Show explorer", key: "Ctrl+Shift+E", inEditor: true,
@@ -280,10 +282,11 @@ addMenu({
     { id: "menu-open-view", label: "openView", run: () => openViewList() },
     { separator: true },
     { id: "menu-appearance", label: "appearance", submenu: [
-      { id: "menu-theme", label: "theme", command: "view.theme" },
-      { id: "menu-wrap", label: "wordWrap", keyHint: "Alt+Z", run: () => toggleWordWrap() },
-      { id: "toggle-primary", label: "togglePrimary", keyHint: "Ctrl+B", command: "view.primary" },
-      { id: "toggle-panel", label: "togglePanel", keyHint: "Ctrl+J", command: "view.panel" },
+      { id: "menu-theme", label: "theme", command: "view.theme", toggle: "light" },
+      { id: "menu-wrap", label: "wordWrap", keyHint: "Alt+Z", command: "view.wrap", toggle: "wrap" },
+      { id: "toggle-primary", label: "togglePrimary", keyHint: "Ctrl+B", command: "view.primary", toggle: "primary" },
+      { id: "toggle-secondary", label: "toggleSecondary", keyHint: "Alt+B", command: "view.secondary", toggle: "secondary" },
+      { id: "toggle-panel", label: "togglePanel", keyHint: "Ctrl+J", command: "view.panel", toggle: "panel" },
     ] },
     { id: "menu-layout", label: "editorLayout", submenu: [
       { id: "menu-layout-single", label: "singleEditor", run: () => {} },
@@ -401,16 +404,29 @@ addStatusItem({ id: "problems", order: 50, render(slot) {
 } });
 
 renderShell(document.querySelector(".ide"), { t: (key) => T[key] ?? key, embed: isEmbed });
-// The theme is set before the editor exists, so the editor starts in it.
-document.body.classList.toggle("theme-light", initialTheme() === "light");
-mountFindBar();
-// The board opens when a run uses pins (handleEvent); it does not take the right side before then.
-if (!isEmbed) setRegionVisible("secondary", false);
+// Every on/off setting is defined once (settings.js, and docs/03-app-flow.md "Toggles"). The editor
+// is created after this; the toggles that need it reach it through `editorRef`.
+initSettings();
+let editorRef = null;
+const systemLight = matchMedia("(prefers-color-scheme: light)").matches;
+defineToggle("light", { initial: systemLight, apply: (light) => {
+  document.body.classList.toggle("theme-light", light); // before the editor, so it starts in the theme
+  editorRef?.dispatch({ effects: themeCell.reconfigure(light ? [] : oneDark) });
+} });
+defineToggle("wrap", { initial: false, apply: (on) => {
+  editorRef?.dispatch({ effects: wrapCell.reconfigure(on ? EditorView.lineWrapping : []) });
+} });
+defineToggle("primary", { initial: true, apply: (on) => setRegionVisible("primary", on) });
+defineToggle("secondary", { initial: false, apply: (on) => setRegionVisible("secondary", on) });
+defineToggle("panel", { initial: true, apply: (on) => setRegionVisible("panel", on) });
 if (isEmbed) {
-  setRegionVisible("primary", false);
-  setRegionVisible("secondary", false);
+  // Embed mode shows the editor, Run and output only: these are forced, and not saved.
+  setToggle("primary", false, { force: true });
+  setToggle("secondary", false, { force: true });
 }
+mountFindBar();
 showPanel("output");
+onToggleChange(() => refreshMenus());
 
 // Minimal StreamLanguage-based highlighting mode for Asili — comments (#, ///), strings, numbers,
 // keywords and built-in type names. Not a real parser (no LSP/diagnostics), just enough to make
@@ -601,7 +617,7 @@ const findField = StateField.define({
 });
 const themeCell = new Compartment();
 const wrapCell = new Compartment();
-let wrapOn = false;
+
 const darkThemeExtension = () => (document.body.classList.contains("theme-light") ? [] : oneDark);
 
 // ---- Editor ---------------------------------------------------------------------------------
@@ -622,7 +638,7 @@ const state0 = () => EditorState.create({
     findField,
     // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
     EditorView.theme({ ".cm-gutters": { color: "#9aa2b5" } }),
-    wrapCell.of(wrapOn ? EditorView.lineWrapping : []),
+    wrapCell.of(isOn("wrap") ? EditorView.lineWrapping : []),
     diagnosticField,
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
@@ -641,6 +657,7 @@ const editor = new EditorView({
   state: state0(),
   parent: document.getElementById("editor"),
 });
+editorRef = editor;
 
 const outputEl = document.getElementById("output");
 const statusEl = document.getElementById("status");
@@ -685,7 +702,7 @@ function resetBoard() {
 }
 
 function handleEvent(json) {
-  if (!isEmbed && !regionVisible("secondary")) setRegionVisible("secondary", true);
+  if (!isEmbed && !isOn("secondary")) setToggle("secondary", true, { force: true });
   let ev;
   try {
     ev = JSON.parse(json);
@@ -2261,26 +2278,9 @@ function replaceAll() {
 }
 
 // ---- Colour theme -----------------------------------------------------------------------------
-function initialTheme() {
-  try {
-    const saved = localStorage.getItem("asili-theme");
-    if (saved === "light" || saved === "dark") return saved;
-  } catch {
-    // Storage unavailable: follow the system.
-  }
-  return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
 
-function toggleTheme() {
-  const light = !document.body.classList.contains("theme-light");
-  document.body.classList.toggle("theme-light", light);
-  try {
-    localStorage.setItem("asili-theme", light ? "light" : "dark");
-  } catch {
-    // The choice is kept for this visit only.
-  }
-  editor.dispatch({ effects: themeCell.reconfigure(light ? [] : oneDark) });
-}
+
+
 
 // Ctrl+/: comment the selected lines with "# " (Asili's line comment), or uncomment them when every
 // selected line already starts with it.
@@ -2342,10 +2342,7 @@ async function pasteFromClipboard() {
 }
 
 // Word wrap: the editor's lines wrap, or run on.
-function toggleWordWrap() {
-  wrapOn = !wrapOn;
-  editor.dispatch({ effects: wrapCell.reconfigure(wrapOn ? EditorView.lineWrapping : []) });
-}
+
 
 // View > Open View…: every view, to show it.
 function openViewList() {
