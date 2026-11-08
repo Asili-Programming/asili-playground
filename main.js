@@ -266,7 +266,7 @@ registerCommand({ id: "project.rename", title: "Rename workspace", run: () => re
 registerCommand({ id: "project.delete", title: "Delete workspace", run: () => deleteActiveProject(),
   enabled: () => !!activeProject() });
 registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEditor: true, inInput: true,
-  run: () => run(), enabled: () => engineReady && !busy });
+  run: () => run(), enabled: () => canRun() });
 registerCommand({ id: "run.stop", title: "Stop", key: "Shift+F5", inEditor: true, inInput: true,
   run: () => stop(), enabled: () => busy });
 registerCommand({ id: "view.primary", title: "Toggle primary sidebar", key: "Ctrl+B", inEditor: true,
@@ -366,7 +366,7 @@ addMenu({
 const PLAY_ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>`;
 const STOP_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" fill="currentColor"/></svg>`;
 addTabEndItem({ id: "run-btn", title: "run", icon: PLAY_ICON, order: 10,
-  run: () => run(), enabled: () => engineReady && !busy });
+  run: () => run(), enabled: () => canRun() });
 addTabEndItem({ id: "stop-btn", title: "stop", icon: STOP_ICON, order: 20,
   run: () => stop(), enabled: () => busy });
 // The language switch: an icon at the right end of the tab row; its title names the other language.
@@ -1038,8 +1038,13 @@ function finishRun(text, kind) {
   runBtn.disabled = false;
 }
 
+// Only the Asili compiler runs: an open .as program can run, any other file (or none) cannot.
+function canRun() {
+  return engineReady && !busy && !!activeDoc && !activeDoc.binary && isProgramDoc(activeDoc);
+}
+
 function run() {
-  if (!activeDoc || !engine.send("run")) return;
+  if (!canRun() || !engine.send("run")) return;
   outputEl.textContent = "";
   resetBoard();
   stopBtn.disabled = false;
