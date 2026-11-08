@@ -7,6 +7,7 @@ import {
   ENTRY, newProject, newId, projectFromSample, addFile, deleteFile, fileStatus, importProject,
   exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf, renameFile, ProjectError,
   foldersOf, folderOf, renameFolder, deleteFolder, moveFile, addFolder, syncConfig, programFiles, isConfig,
+  isProgram, isBinary, isText, valueBytes, valueFromBytes,
 } from "./project.js";
 import {
   addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
@@ -78,6 +79,9 @@ const STRINGS = {
     errVersion: "Toleo hili halitambuliki", errNoName: "Nafasi ya kazi haina jina",
     errNoFiles: "Nafasi ya kazi haina mafaili", errNoEntry: "Nafasi ya kazi haina kuu.as",
     errNotAsiliFile: "Si faili la Asili", errNotText: "Si maandishi", errFileTooBig: "Faili ni kubwa mno",
+    errBadBinary: "Faili hili la binary si sahihi", binaryNote: "Faili la binary: haliwezi kuhaririwa",
+    sharedSkipped: "Mafaili ya binary hayakujumuishwa kwenye kiungo", filesAdded: "Mafaili yameongezwa",
+    addFiles: "Ongeza mafaili",
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
@@ -140,6 +144,9 @@ const STRINGS = {
     errVersion: "This version is not recognised", errNoName: "The workspace has no name",
     errNoFiles: "The workspace has no files", errNoEntry: "The workspace has no kuu.as",
     errNotAsiliFile: "Not an Asili file", errNotText: "Not text", errFileTooBig: "The file is too large",
+    errBadBinary: "This binary file is not valid", binaryNote: "Binary file: it cannot be edited",
+    sharedSkipped: "Binary files were left out of the link", filesAdded: "Files added",
+    addFiles: "Add files",
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
@@ -209,6 +216,25 @@ registerCommand({
     input.click();
   },
 });
+// Add files of any type to the open workspace (text stays text; anything else is kept as bytes).
+registerCommand({
+  id: "project.addFiles",
+  title: "Add files",
+  enabled: () => !!activeProject(),
+  run: () => {
+    let input = document.getElementById("add-files-input");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.id = "add-files-input";
+      input.multiple = true;
+      input.hidden = true;
+      document.body.append(input);
+    }
+    input.value = "";
+    input.click();
+  },
+});
 registerCommand({ id: "file.new", title: "New file", key: "Alt+N", inEditor: true, inInput: true,
   run: () => createUntitledFile() });
 registerCommand({ id: "file.close", title: "Close tab", key: "Alt+W", inEditor: true, inInput: true,
@@ -265,6 +291,7 @@ addMenu({
     { id: "menu-project-save", label: "saveProject", command: "project.save" },
     { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
     { id: "menu-project-import", label: "importProject", command: "project.import" },
+    { id: "menu-project-add", label: "addFiles", command: "project.addFiles" },
     { id: "menu-project-export", label: "exportProject", command: "project.export" },
     { id: "menu-project-close", label: "closeWorkspace", command: "project.close" },
     { id: "menu-project-rename", label: "projectRename", command: "project.rename" },
@@ -560,8 +587,8 @@ let checkTimer = null;
 function requestCheck() {
   if (!engineReady || !worker) return;
   checks.send("edit");
-  // The workspace file is JSON, not Asili: it has no diagnostics.
-  if (activeDoc && isConfig(activeDoc.file ?? "")) {
+  // Only Asili programs have diagnostics: the workspace file is JSON, and other files are not Asili.
+  if (activeDoc && (activeDoc.binary || isConfig(activeDoc.file ?? "") || !isProgramDoc(activeDoc))) {
     renderProblems([]);
     return;
   }
@@ -594,10 +621,12 @@ function scheduleTabs() {
 let sessionTimer = null;
 let sessionSaved = true;
 function persistSession() {
+  // Binary files are not kept in the session: their bytes are in the workspace.
+  const open = docs.filter((d) => !d.binary);
   const data = {
-    active: activeDoc?.key ?? null,
+    active: activeDoc && !activeDoc.binary ? activeDoc.key : null,
     workspace: activeProjectId,
-    docs: docs.map((d) => ({ key: d.key, name: d.name, projectId: d.projectId, file: d.file,
+    docs: open.map((d) => ({ key: d.key, name: d.name, projectId: d.projectId, file: d.file,
       text: d === activeDoc ? editor.state.doc.toString() : d.text })),
   };
   sessionSaved = saveSession(data);
@@ -667,7 +696,8 @@ const wrapCell = new Compartment();
 const darkThemeExtension = () => (document.body.classList.contains("theme-light") ? [] : oneDark);
 
 // ---- Editor ---------------------------------------------------------------------------------
-const state0 = () => EditorState.create({
+// The editor's state for a file. Asili highlighting is for .as files only (asili = false: plain text).
+const state0 = (asili = true) => EditorState.create({
   doc: "",
   extensions: [
     lineNumbers(),
@@ -677,7 +707,7 @@ const state0 = () => EditorState.create({
     indentOnInput(),
     bracketMatching(),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-    StreamLanguage.define({ ...asiliMode, languageData: { commentTokens: { line: "#" } } }),
+    ...(asili ? [StreamLanguage.define({ ...asiliMode, languageData: { commentTokens: { line: "#" } } })] : []),
     // Ctrl+/ is bound here, before the editor's own toggle, so the editor handles it once.
     keymap.of([{ key: "Mod-/", run: () => { toggleLineComments(); return true; } }, indentWithTab, ...defaultKeymap, ...historyKeymap]),
     themeCell.of(darkThemeExtension()),
@@ -965,6 +995,7 @@ for (const p of projects) syncConfig(p);
 let activeProjectId = null; // set by the saved session, or when a workspace is opened
 
 function isDirty(d) {
+  if (d.binary) return false; // a binary file is never edited, so it is never unsaved
   const p = d.projectId ? projectById(d.projectId) : null;
   return !!p && fileStatus(p, d.file, d.text) === "modified";
 }
@@ -1056,7 +1087,7 @@ function openDoc(key, name, text, extra = {}) {
 
 function activate(d) {
   if (d === activeDoc) return;
-  if (activeDoc) {
+  if (activeDoc && !activeDoc.binary) {
     activeDoc.text = editor.state.doc.toString();
     activeDoc.state = editor.state; // keeps undo history and the cursor for this file
   }
@@ -1064,10 +1095,13 @@ function activate(d) {
   activeLint = [];
   lintState.setDerived("none");
   currentInputs = d.inputs;
-  if (d.state) {
+  showBinary(d.binary ? d : null);
+  if (d.binary) {
+    editor.setState(state0(false)); // the editor is hidden: a binary file has no text to edit
+  } else if (d.state) {
     editor.setState(d.state);
   } else {
-    editor.setState(state0());
+    editor.setState(state0(isProgramDoc(d)));
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: d.text } });
   }
   persistSession();
@@ -1076,6 +1110,38 @@ function activate(d) {
   if (d.projectId) activeProjectId = d.projectId;
   renderProjectSection();
   refreshMenus();
+}
+
+// An open file is an Asili program when it is a .as file of a workspace (a sample's file is one too).
+function isProgramDoc(d) {
+  return d.projectId ? isProgram(d.file ?? "") : true;
+}
+
+// The main area shows a binary file as a note (its bytes are not text): d is the binary file, or null.
+function showBinary(d) {
+  const main = document.querySelector(".main");
+  main?.classList.toggle("binary", !!d);
+  let box = document.getElementById("binary-view");
+  if (!box && d) {
+    box = document.createElement("div");
+    box.id = "binary-view";
+    box.className = "binary-view";
+    document.querySelector(".main-body")?.append(box);
+  }
+  if (!box) return;
+  box.hidden = !d;
+  if (d) {
+    const p = projectById(d.projectId);
+    const size = p ? valueBytes(p.files[d.file]) : 0;
+    box.textContent = `${d.file}: ${T.binaryNote} (${size} B)`;
+  }
+}
+
+// Format and lint work on Asili programs only; say so for any other file.
+function refuseNotAsili() {
+  if (!activeDoc || (!activeDoc.binary && isProgramDoc(activeDoc))) return false;
+  note(T.errNotAsiliFile, "error");
+  return true;
 }
 
 // Close a tab. A modified project file first shows a warning; a second request closes it.
@@ -1110,6 +1176,7 @@ function closeDoc(d) {
 // a file are off.
 function showEmptyState() {
   activeDoc = null;
+  showBinary(null);
   currentInputs = [];
   editor.setState(state0());
   setEmptyState(true);
@@ -1125,6 +1192,9 @@ function setEmptyState() {
 }
 
 function openProjectFile(p, file) {
+  if (isBinary(p.files[file])) {
+    return openDoc(`p:${p.id}:${file}`, file, "", { projectId: p.id, file, binary: true, inputs: [] });
+  }
   return openDoc(`p:${p.id}:${file}`, file, p.files[file], {
     projectId: p.id, file, inputs: file === ENTRY ? (p.inputs ?? []) : [],
   });
@@ -1262,7 +1332,7 @@ function showDialog(message, buttons) {
 // The text a project file has now: the open document's text, or the saved text.
 function liveText(p, file) {
   const d = docs.find((x) => x.key === `p:${p.id}:${file}`);
-  return d ? d.text : p.files[file];
+  return d && !d.binary ? d.text : p.files[file];
 }
 function liveProject(p) {
   return { ...p, files: Object.fromEntries(Object.keys(p.files).map((f) => [f, liveText(p, f)])) };
@@ -1325,7 +1395,7 @@ function saveActiveProject() {
   const p = activeProject();
   if (!p) return;
   for (const d of docs) {
-    if (d.projectId === p.id) p.files[d.file] = d.text;
+    if (d.projectId === p.id && !d.binary) p.files[d.file] = d.text;
   }
   p.updated = new Date().toISOString();
   if (persistProjects()) note(T.savedNote, "ok");
@@ -1374,6 +1444,28 @@ function exportActiveProject() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   note(T.exportedNote, "ok");
+}
+
+// Add the chosen files at the workspace's root. A file whose name is not valid, or that would pass a
+// limit, is reported and skipped; the others are still added.
+async function addFiles(list) {
+  const p = activeProject();
+  if (!p) return;
+  let added = 0;
+  for (const f of list) {
+    try {
+      const value = valueFromBytes(new Uint8Array(await f.arrayBuffer()));
+      addFile(p, f.name, value);
+      added += 1;
+    } catch (e) {
+      note(errText(e), "error");
+    }
+  }
+  if (added) {
+    persistProjects();
+    renderFiles();
+    note(T.filesAdded, "ok");
+  }
 }
 
 async function importFile(file) {
@@ -1490,7 +1582,7 @@ function fileRow(p, file, depth) {
   li.innerHTML = fileIcon(file);
   const label = document.createElement("span");
   label.className = "tree-name";
-  label.textContent = isConfig(file) ? file : `${moduleOf(file)}.as`;
+  label.textContent = file.split("/").pop();
   label.title = file;
   const meta = document.createElement("span");
   meta.className = "file-meta";
@@ -1935,9 +2027,12 @@ function openSharedFiles(files) {
 async function shareCurrent() {
   try {
     const p = activeProject();
-    const files = p && activeDoc?.projectId === p.id
+    const all = p && activeDoc?.projectId === p.id
       ? liveProject(p).files
       : { "kuu.as": editor.state.doc.toString() };
+    // A link carries text only: binary files are left out, and the page says so.
+    const files = Object.fromEntries(Object.entries(all).filter(([, v]) => isText(v)));
+    if (Object.keys(files).length < Object.keys(all).length) note(T.sharedSkipped, "ok");
     const token = await encodeShare(files);
     const url = `${location.origin}${location.pathname}?lugha=${lang}#k=${token}`;
     try {
@@ -1998,6 +2093,7 @@ document.body.addEventListener("click", (e) => {
 });
 document.body.addEventListener("change", (e) => {
   if (e.target?.id === "import-file" && e.target.files?.[0]) importFile(e.target.files[0]);
+  if (e.target?.id === "add-files-input" && e.target.files?.length) addFiles([...e.target.files]);
 });
 document.body.addEventListener("keydown", (e) => {
 
@@ -2498,7 +2594,7 @@ let formatSeq = 0;
 let lintSeq = 0;
 
 function requestFormat() {
-  if (!engineReady || !worker || !activeDoc) return;
+  if (!engineReady || !worker || !activeDoc || refuseNotAsili()) return;
   formatSeq += 1;
   worker.postMessage({ type: "format", seq: formatSeq, source: editor.state.doc.toString() });
 }
@@ -2515,7 +2611,7 @@ function applyFormatted(text) {
 }
 
 function requestLint() {
-  if (!engineReady || !worker || !activeDoc) return;
+  if (!engineReady || !worker || !activeDoc || refuseNotAsili()) return;
   lintSeq += 1;
   worker.postMessage({ type: "lint", seq: lintSeq, source: editor.state.doc.toString() });
 }

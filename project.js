@@ -3,17 +3,51 @@
 // scripts/test_project.mjs can check it under Node.
 
 export const SCHEMA = "asili-project";
-export const VERSION = 2;
+// Version 3: a file is text (a string) or binary ({ base64 }); files of any type are kept. Versions 1
+// and 2 still import (they hold text only).
+export const VERSION = 3;
 export const ENTRY = "kuu.as";
 // The workspace's configuration file, at its root (docs/06-workspaces.md, "The workspace file").
 export const CONFIG_FILE = "asili-workspace.json";
 export const isConfig = (file) => file === CONFIG_FILE;
 export const LIMITS = { fileBytes: 256 * 1024, projectBytes: 2 * 1024 * 1024, files: 32, folders: 64 };
 
+// Folder names and the base names of .as files are identifiers; other files may use these characters.
 const SEGMENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ANY_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9_.\- ]*$/;
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
 const STORAGE_KEY = "asili-projects-v1";
 const encoder = new TextEncoder();
 const bytes = (text) => encoder.encode(text).length;
+
+// A file's value: text (a string) or binary ({ base64 }).
+export const isBinary = (value) => value !== null && typeof value === "object" && typeof value.base64 === "string";
+export const isText = (value) => typeof value === "string";
+export function valueBytes(value) {
+  if (isText(value)) return bytes(value);
+  return isBinary(value) ? Math.floor((value.base64.length * 3) / 4) : 0;
+}
+
+// The value of a file's bytes: text when they are UTF-8 with no NUL byte, else binary.
+export function valueFromBytes(data) {
+  if (!data.includes(0)) {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(data);
+    } catch {
+      // not UTF-8: stored as binary
+    }
+  }
+  let text = "";
+  for (let i = 0; i < data.length; i += 0x8000) text += String.fromCharCode(...data.subarray(i, i + 0x8000));
+  return { base64: btoa(text) };
+}
+
+// The bytes of a file, for a download: text is UTF-8, binary is decoded.
+export function bytesOf(value) {
+  if (isText(value)) return encoder.encode(value);
+  const text = atob(value.base64);
+  return Uint8Array.from(text, (c) => c.charCodeAt(0));
+}
 
 // An error with a key (the page shows the text for its language) and an optional detail.
 export class ProjectError extends Error {
@@ -64,6 +98,19 @@ export function fileNameFor(module) {
   return pathFor(module);
 }
 
+// Any file's path. A name with no extension, or ending in .as, is an Asili file (pathFor); any other
+// name keeps its extension and may use the characters ANY_SEGMENT allows.
+export function pathForFile(input) {
+  const raw = String(input ?? "").trim().replace(/\/+$/, "");
+  if (!/\.[A-Za-z0-9]+$/.test(raw) || raw.endsWith(".as")) return pathFor(raw);
+  const parts = raw.split("/");
+  if (parts.some((part) => !ANY_SEGMENT.test(part))) throw new ProjectError("badName", raw);
+  return raw;
+}
+
+// An Asili file: a .as file that is not the configuration file. Only these are run and checked.
+export const isProgram = (file) => file.endsWith(".as") && !isConfig(file);
+
 // The module name of a file: its base name without .as. This is what `leta` names.
 export function moduleOf(file) {
   return file.split("/").pop().replace(/\.as$/, "");
@@ -111,9 +158,9 @@ function clashWith(project, file) {
   return programFiles(project).find((other) => other !== file && moduleOf(other) === name) ?? null;
 }
 
-// The Asili files of the program: every file except the configuration file.
+// The Asili files of the program: the .as files (the configuration file is not one).
 export function programFiles(project) {
-  return Object.keys(project.files).filter((f) => !isConfig(f));
+  return Object.keys(project.files).filter(isProgram);
 }
 
 // The configuration file's text, from the workspace's state.
@@ -139,13 +186,17 @@ function checkUnique(project, file) {
   if (clash) throw new ProjectError("nameTaken", `${moduleOf(file)} (${clash})`);
 }
 
-export function addFile(project, path, text = "") {
-  const file = pathFor(path);
-  if (file in project.files) throw new ProjectError("fileExists", file);
+// Add a file: text (the default) or a binary value. The configuration file's name is taken.
+export function addFile(project, path, value = "") {
+  const file = pathForFile(path);
+  if (file in project.files || isConfig(file)) throw new ProjectError("fileExists", file);
   if (Object.keys(project.files).length >= LIMITS.files) throw new ProjectError("tooManyFiles");
-  project.files[file] = text;
+  if (valueBytes(value) > LIMITS.fileBytes) throw new ProjectError("fileTooBig", file);
+  if (sizeOf(project) + valueBytes(value) > LIMITS.projectBytes) throw new ProjectError("projectTooBig");
+  project.files[file] = value;
+  project.version = VERSION; // a workspace with any file is written in the current format
   try {
-    checkUnique(project, file);
+    if (isProgram(file)) checkUnique(project, file);
   } catch (e) {
     delete project.files[file];
     throw e;
@@ -180,12 +231,12 @@ export function deleteFolder(project, folder) {
 export function renameFile(project, file, newName) {
   if (file === ENTRY || isConfig(file)) throw new ProjectError("entryRename");
   if (!(file in project.files)) throw new ProjectError("fileMissing", file);
-  const next = pathFor(folderOf(file) ? `${folderOf(file)}/${newName}` : newName);
+  const next = pathForFile(folderOf(file) ? `${folderOf(file)}/${newName}` : newName);
   if (next === file) return file;
-  if (next in project.files) throw new ProjectError("fileExists", next);
+  if (next in project.files || isConfig(next)) throw new ProjectError("fileExists", next);
   project.files = Object.fromEntries(Object.entries(project.files).map(([k, v]) => [k === file ? next : k, v]));
   try {
-    checkUnique(project, next);
+    if (isProgram(next)) checkUnique(project, next);
   } catch (e) {
     project.files = Object.fromEntries(Object.entries(project.files).map(([k, v]) => [k === next ? file : k, v]));
     throw e;
@@ -199,7 +250,8 @@ export function moveFile(project, file, folder) {
   if (!(file in project.files)) throw new ProjectError("fileMissing", file);
   const target = String(folder ?? "").replace(/\/+$/, "");
   if (target && !foldersOf(project).includes(target)) throw new ProjectError("folderMissing", target);
-  const next = target ? `${target}/${moduleOf(file)}.as` : `${moduleOf(file)}.as`;
+  const base = file.split("/").pop();
+  const next = target ? `${target}/${base}` : base;
   if (next === file) return file;
   if (next in project.files) throw new ProjectError("fileExists", next);
   project.files = Object.fromEntries(Object.entries(project.files).map(([k, v]) => [k === file ? next : k, v]));
@@ -224,7 +276,7 @@ export function fileStatus(project, file, text) {
 }
 
 export function sizeOf(project) {
-  return Object.values(project.files).reduce((n, text) => n + bytes(text), 0);
+  return Object.values(project.files).reduce((n, value) => n + valueBytes(value), 0);
 }
 
 // Name for an import whose name is taken: "Hesabu" -> "Hesabu (2)", "Hesabu (3)", ...
@@ -251,7 +303,7 @@ export function importProject(text, now = new Date().toISOString()) {
   }
   if (!data || typeof data !== "object") throw new ProjectError("notAsili");
   if (data.schema !== SCHEMA) throw new ProjectError("notAsili");
-  if (data.version !== 1 && data.version !== VERSION) throw new ProjectError("version", String(data.version));
+  if (![1, 2, VERSION].includes(data.version)) throw new ProjectError("version", String(data.version));
   if (typeof data.name !== "string" || data.name.trim() === "") throw new ProjectError("noName");
   if (!data.files || typeof data.files !== "object" || Array.isArray(data.files)) {
     throw new ProjectError("noFiles");
@@ -262,16 +314,26 @@ export function importProject(text, now = new Date().toISOString()) {
   if (!(ENTRY in data.files)) throw new ProjectError("noEntry");
   const files = {};
   for (const name of names) {
+    const value = data.files[name];
     if (isConfig(name)) {
-      if (typeof data.files[name] !== "string") throw new ProjectError("notText", name);
+      if (!isText(value)) throw new ProjectError("notText", name);
       continue;
     }
-    if (!name.endsWith(".as")) throw new ProjectError("notAsiliFile", name);
-    const file = name === ENTRY ? ENTRY : pathFor(name);
+    // A name is a path: a .as file must be a valid Asili name; another file keeps its own name.
+    let file;
+    try {
+      file = name === ENTRY ? ENTRY : pathForFile(name);
+    } catch {
+      throw new ProjectError("badName", name);
+    }
     if (file !== name) throw new ProjectError("badName", name);
-    if (typeof data.files[name] !== "string") throw new ProjectError("notText", name);
-    if (bytes(data.files[name]) > LIMITS.fileBytes) throw new ProjectError("fileTooBig", name);
-    files[file] = data.files[name];
+    if (isBinary(value)) {
+      if (!BASE64.test(value.base64) || value.base64.length % 4 !== 0) throw new ProjectError("badBinary", name);
+    } else if (!isText(value)) {
+      throw new ProjectError("notText", name);
+    }
+    if (valueBytes(value) > LIMITS.fileBytes) throw new ProjectError("fileTooBig", name);
+    files[file] = value;
   }
   const project = {
     schema: SCHEMA,

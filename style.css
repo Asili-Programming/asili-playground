@@ -519,6 +519,10 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 
 /* ---- The main area's empty state: no open file ---------------------------------------------- */
 .main.no-doc #editor, .main.no-doc .notice { display: none; }
+/* A binary file: the editor is hidden and the note shows instead. */
+.main.binary #editor { display: none; }
+.binary-view { display: none; padding: 1rem; color: var(--muted); font-size: 0.9rem; }
+.main.binary .binary-view { display: block; }
 .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--muted); text-align: center; padding: 1rem; }
 .empty-state[hidden] { display: none; }
 .empty-state h2 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
