@@ -27,7 +27,7 @@ assert.equal(back.created, "2026-11-08T00:00:00Z");
 const bad = (doc, key) => assert.equal(keyOf(() => P.importProject(typeof doc === "string" ? doc : JSON.stringify(doc))), key);
 bad("{not json", "notJson");
 bad({ ...back, schema: "other" }, "notAsili");
-bad({ ...back, version: 2 }, "version");
+bad({ ...back, version: 3 }, "version");
 bad({ ...back, name: "" }, "noName");
 bad({ ...back, files: { "msaidizi.as": "x" } }, "noEntry");
 bad({ ...back, files: { "kuu.as": "x", "a-b.as": "y" } }, "badName");
@@ -49,6 +49,34 @@ assert.equal(P.uniqueName("Hesabu", ["Mengine"]), "Hesabu");
 
 // A project's bundle names modules by file name without .as.
 assert.deepEqual(Object.keys(P.bundleOf(p)).sort(), ["kuu", "takwimu"]);
+
+// Folders: a file has a path; the module name is the base name, and base names are unique.
+P.addFolder(p, "lib");
+assert.equal(P.addFile(p, "lib/msaidizi", "kazi b() {}\n"), "lib/msaidizi.as");
+assert.equal(keyOf(() => P.addFile(p, "lib/msaidizi")), "fileExists");
+assert.equal(keyOf(() => P.addFile(p, "other/msaidizi")), "nameTaken");
+assert.equal(keyOf(() => P.addFolder(p, "lib")), "folderExists");
+assert.equal(keyOf(() => P.addFolder(p, "bad-name")), "badName");
+assert.equal(P.moduleOf("lib/msaidizi.as"), "msaidizi");
+assert.deepEqual(P.foldersOf(p), ["lib"]);
+assert.equal(P.moveFile(p, "lib/msaidizi.as", ""), "msaidizi.as");
+assert.equal(P.moveFile(p, "msaidizi.as", "lib"), "lib/msaidizi.as");
+assert.equal(keyOf(() => P.moveFile(p, "lib/msaidizi.as", "nowhere")), "folderMissing");
+assert.equal(keyOf(() => P.moveFile(p, "kuu.as", "lib")), "entryMove");
+assert.equal(P.renameFolder(p, "lib", "maktaba"), "maktaba");
+assert.ok("maktaba/msaidizi.as" in p.files && P.foldersOf(p).includes("maktaba"));
+P.renameFolder(p, "maktaba", "lib");
+P.deleteFolder(p, "lib");
+assert.ok(!("lib/msaidizi.as" in p.files) && !P.foldersOf(p).includes("lib"));
+P.addFolder(p, "lib");
+P.addFile(p, "lib/tupu", "");
+const keep = P.importProject(P.exportProject(p));
+assert.deepEqual(keep.folders, ["lib"]);
+// A version 1 workspace (flat files) still imports.
+const v1 = P.importProject(JSON.stringify({ schema: "asili-project", version: 1, name: "Zamani", files: { "kuu.as": "x" } }));
+assert.equal(v1.version, 2);
+assert.deepEqual(Object.keys(v1.files), ["kuu.as"]);
+P.deleteFolder(p, "lib");
 
 // Storage: a list round trip, and a refusal (not an error) when storage is unavailable.
 const memory = new Map();

@@ -75,7 +75,9 @@ const STRINGS = {
     errVersion: "Toleo hili halitambuliki", errNoName: "Nafasi ya kazi haina jina",
     errNoFiles: "Nafasi ya kazi haina mafaili", errNoEntry: "Nafasi ya kazi haina kuu.as",
     errNotAsiliFile: "Si faili la Asili", errNotText: "Si maandishi", errFileTooBig: "Faili ni kubwa mno",
-    errProjectTooBig: "Nafasi ya kazi ni kubwa mno",
+    errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
+    errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
+    errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
     lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
@@ -124,7 +126,9 @@ const STRINGS = {
     errVersion: "This version is not recognised", errNoName: "The workspace has no name",
     errNoFiles: "The workspace has no files", errNoEntry: "The workspace has no kuu.as",
     errNotAsiliFile: "Not an Asili file", errNotText: "Not text", errFileTooBig: "The file is too large",
-    errProjectTooBig: "The workspace is too large",
+    errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
+    errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
+    errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
     lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
