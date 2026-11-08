@@ -79,7 +79,7 @@ const STRINGS = {
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
-    newFolder: "Folda mpya", lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
+    newFolder: "Folda mpya", collapseAll: "Funga folda zote", lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
     title: "Asili — Playground",
@@ -130,7 +130,7 @@ const STRINGS = {
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
-    newFolder: "New folder", lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
+    newFolder: "New folder", collapseAll: "Collapse folders", lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
 const T = STRINGS[lang];
@@ -186,6 +186,10 @@ registerCommand({ id: "edit.paste", title: "Paste", run: () => pasteFromClipboar
 registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAll(editor) });
 registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleTheme() });
 registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
+registerCommand({ id: "project.rename", title: "Rename workspace", run: () => renameActiveProject(),
+  enabled: () => !!activeProject() });
+registerCommand({ id: "project.delete", title: "Delete workspace", run: () => deleteActiveProject(),
+  enabled: () => !!activeProject() });
 registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEditor: true, inInput: true,
   run: () => run(), enabled: () => engineReady && !busy });
 registerCommand({ id: "run.stop", title: "Stop", key: "Shift+F5", inEditor: true, inInput: true,
@@ -213,6 +217,8 @@ addMenu({
     { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
     { id: "menu-project-import", label: "importProject", command: "project.import" },
     { id: "menu-project-export", label: "exportProject", command: "project.export" },
+    { id: "menu-project-rename", label: "projectRename", command: "project.rename" },
+    { id: "menu-project-delete", label: "projectDelete", command: "project.delete" },
     { id: "share-btn", label: "share", optional: true, command: "share.link" },
     { id: "close-tab-btn", label: "closeTab", optional: true, command: "file.close" },
   ],
@@ -286,38 +292,24 @@ const ICON_BOARD = svgIcon('<rect x="6" y="6" width="12" height="12" rx="2"/><pa
 const ICON_OUTPUT = svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>');
 const ICON_PROBLEMS = svgIcon('<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>');
 
-// The Explorer view: the workspace is a section of it, above the file list (as in VS Code).
+// The Explorer view (as in VS Code): a header with file commands, then the workspace as the root
+// of its tree. Workspace commands are in the File menu.
+const ICON_NEW_FILE = svgIcon('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/>');
+const ICON_NEW_FOLDER = svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>');
+const ICON_COLLAPSE = svgIcon('<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>');
 addSidebarSection("primary", {
   id: "files", title: "explorer", order: 10, icon: ICON_FOLDER,
   render(container, t) {
     container.innerHTML = `
-      <section class="explorer-section" aria-label="${t("projectSection")}">
-        <h3 class="explorer-heading">${t("projectSection")}</h3>
-        <div class="sidebar-row">
-          <input id="project-name" type="text" placeholder="${t("projectName")}" aria-label="${t("projectName")}" />
-          <button id="project-new-btn" type="button">${t("newProject")}</button>
-        </div>
-        <div class="sidebar-row">
-          <button id="project-save-btn" type="button">${t("saveProject")}</button>
-          <button id="project-export-btn" type="button">${t("exportProject")}</button>
-          <button id="project-import-btn" type="button">${t("importProject")}</button>
-          <input id="import-file" type="file" accept=".json,application/json" hidden />
-        </div>
-        <div class="sidebar-row">
-          <button id="project-rename-btn" type="button">${t("projectRename")}</button>
-          <button id="project-delete-btn" type="button">${t("projectDelete")}</button>
-        </div>
-        <p id="project-note" class="sidebar-note" role="status"></p>
-        <div id="undo-note" class="undo-note" role="status" hidden></div>
-      </section>
-      <section class="explorer-section" aria-label="${t("filesSection")}">
-        <h3 class="explorer-heading">${t("filesSection")}</h3>
-        <ul id="file-list" class="open-files"></ul>
-        <div class="sidebar-row">
-          <input id="file-name" type="text" placeholder="${t("fileName")}" aria-label="${t("fileName")}" />
-          <button id="file-create-btn" type="button">${t("newFile")}</button>
-        </div>
-      </section>`;
+      <div class="explorer-toolbar">
+        <span class="explorer-title">${t("explorer")}</span>
+        <button id="explorer-new-file" class="icon-btn" type="button" title="${t("newFile")}" aria-label="${t("newFile")}">${ICON_NEW_FILE}</button>
+        <button id="explorer-new-folder" class="icon-btn" type="button" title="${t("newFolder")}" aria-label="${t("newFolder")}">${ICON_NEW_FOLDER}</button>
+        <button id="explorer-collapse" class="icon-btn" type="button" title="${t("collapseAll")}" aria-label="${t("collapseAll")}">${ICON_COLLAPSE}</button>
+      </div>
+      <p id="project-note" class="sidebar-note" role="status"></p>
+      <div id="undo-note" class="undo-note" role="status" hidden></div>
+      <ul id="file-list" class="open-files" aria-label="${t("explorer")}"></ul>`;
   },
 });
 addSidebarSection("secondary", {
@@ -1371,6 +1363,91 @@ function renderProjectSection() {
   refreshMenus();
 }
 
+// The workspace's name, the root of the tree: double-click to rename; right-click for its menu.
+function workspaceRoot(p) {
+  const li = document.createElement("li");
+  li.className = "tree-row root";
+  li.dataset.workspace = p.id;
+  li.innerHTML = FOLDER_ICON;
+  const label = document.createElement("span");
+  label.className = "tree-name";
+  label.textContent = p.name;
+  li.append(label);
+  li.addEventListener("dblclick", () => startRootRename(p, li));
+  li.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showRootMenu(e.clientX, e.clientY, p, li);
+  });
+  return li;
+}
+
+function startRootRename(p, li) {
+  const old = li.querySelector(".tree-name");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "file-rename";
+  input.value = p.name;
+  input.setAttribute("aria-label", T.projectRename);
+  old.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    if (commit && input.value.trim()) {
+      p.name = uniqueName(input.value.trim(), projects.filter((x) => x.id !== p.id).map((x) => x.name));
+      p.updated = new Date().toISOString();
+      persistProjects();
+      note(T.fileRenamed, "ok");
+    }
+    renderFiles();
+    renderTabs();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener("blur", () => finish(false));
+}
+
+function showRootMenu(x, y, p, li) {
+  fileMenu?.remove();
+  const menu = document.createElement("div");
+  menu.className = "file-menu";
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  const add = (label, run, armedLabel) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      if (armedLabel && b.dataset.armed !== "yes") {
+        b.dataset.armed = "yes";
+        b.textContent = armedLabel;
+        return;
+      }
+      menu.remove();
+      fileMenu = null;
+      run();
+    });
+    menu.append(b);
+  };
+  add(T.newFile, () => newItemIn(p, "", "file"));
+  add(T.newFolder, () => newItemIn(p, "", "folder"));
+  add(T.projectRename, () => startRootRename(p, li));
+  add(T.projectDelete, () => deleteActiveProject(), T.confirmDelete);
+  document.body.append(menu);
+  fileMenu = menu;
+  const dismiss = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      fileMenu = null;
+      document.removeEventListener("pointerdown", dismiss);
+    }
+  };
+  document.addEventListener("pointerdown", dismiss);
+}
 function renderFiles() {
   const list = document.getElementById("file-list");
   if (!list) return;
@@ -1378,7 +1455,8 @@ function renderFiles() {
   const p = activeProject();
   list.replaceChildren();
   if (!p) return;
-  renderTreeLevel(p, buildTree(p), "", 0, list);
+  list.append(workspaceRoot(p));
+  renderTreeLevel(p, buildTree(p), "", 1, list);
   if (Object.keys(p.files).length === 0) {
     const none = document.createElement("li");
     none.className = "none";
@@ -1534,20 +1612,20 @@ async function loadSamples() {
 // Wire the sidebar controls (they exist once the shell is rendered).
 document.body.addEventListener("click", (e) => {
   const id = e.target?.id;
-  if (id === "project-new-btn") newProjectFromInput();
-  if (id === "project-save-btn") saveActiveProject();
-  if (id === "project-export-btn") exportActiveProject();
-  if (id === "project-import-btn") document.getElementById("import-file").click();
-  if (id === "file-create-btn") createFileFromInput();
-  if (id === "project-rename-btn") renameActiveProject();
-  if (id === "project-delete-btn") deleteActiveProject(e.target);
+  const p = activeProject();
+  if (id === "explorer-new-file" && p) newItemIn(p, "", "file");
+  if (id === "explorer-new-folder" && p) newItemIn(p, "", "folder");
+  if (id === "explorer-collapse") {
+    treeOpen.clear();
+    saveTreeOpen();
+    renderFiles();
+  }
 });
 document.body.addEventListener("change", (e) => {
   if (e.target?.id === "import-file" && e.target.files?.[0]) importFile(e.target.files[0]);
 });
 document.body.addEventListener("keydown", (e) => {
-  if (e.target?.id === "file-name" && e.key === "Enter") createFileFromInput();
-  if (e.target?.id === "project-name" && e.key === "Enter") newProjectFromInput();
+
 });
 
 clearBtn.addEventListener("click", () => {
@@ -1780,32 +1858,20 @@ function deleteProjectFile(p, file, button) {
 
 function renameActiveProject() {
   const p = activeProject();
-  const input = document.getElementById("project-name");
-  const name = input?.value.trim();
-  if (!p || !name) {
-    note(T.noProject, "error");
-    return;
-  }
-  p.name = uniqueName(name, projects.filter((x) => x.id !== p.id).map((x) => x.name));
-  p.updated = new Date().toISOString();
-  input.value = "";
-  persistProjects();
-  for (const d of docs) if (d.projectId === p.id) renderTabs();
-  renderProjectSection();
-  note(T.fileRenamed, "ok");
+  if (p) startRootRename(p, document.querySelector(".tree-row.root"));
 }
 
-function deleteActiveProject(button) {
+let deleteArmedAt = 0;
+function deleteActiveProject() {
   const p = activeProject();
   if (!p) return;
-  if (button.dataset.armed !== "yes") {
-    button.dataset.armed = "yes";
-    button.textContent = T.confirmDelete;
-    setTimeout(() => { button.dataset.armed = ""; button.textContent = T.projectDelete; }, 3000);
+  const now = Date.now();
+  if (now - deleteArmedAt > 4000) {
+    deleteArmedAt = now;
+    note(T.confirmDelete, "error");
     return;
   }
-  button.dataset.armed = "";
-  button.textContent = T.projectDelete;
+  deleteArmedAt = 0;
   for (const d of docs.filter((x) => x.projectId === p.id)) closeDoc(d, { force: true });
   projects = projects.filter((x) => x.id !== p.id);
   lastRemoved = { kind: "project", project: p };
