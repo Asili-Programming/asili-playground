@@ -1278,6 +1278,8 @@ function newItemIn(p, folder, kind) {
     persistProjects();
     if (kind === "file") openProjectFile(p, `${path}.as`);
     renderFiles();
+    // A new folder opens for its name, as in VS Code.
+    if (kind === "folder") startFolderRename(p, path);
   } catch (e) {
     note(errText(e), "error");
   }
