@@ -493,9 +493,11 @@ defineToggle("minimap", { initial: true, apply: (on) => {
   minimapEl?.toggleAttribute("hidden", !on);
   scheduleMinimap();
 } });
-defineToggle("primary", { initial: true, apply: (on) => setRegionVisible("primary", on) });
+// On a phone (under 720 px) the sidebars and the bottom panel start closed: the editor comes first.
+const phoneScreen = matchMedia("(max-width: 719px)").matches;
+defineToggle("primary", { initial: !phoneScreen, apply: (on) => setRegionVisible("primary", on) });
 defineToggle("secondary", { initial: false, apply: (on) => setRegionVisible("secondary", on) });
-defineToggle("panel", { initial: true, apply: (on) => setRegionVisible("panel", on) });
+defineToggle("panel", { initial: !phoneScreen, apply: (on) => setRegionVisible("panel", on) });
 if (isEmbed) {
   // Embed mode shows the editor, Run and output only: these are forced, and not saved.
   setToggle("primary", false, { force: true });
@@ -2777,3 +2779,9 @@ if (typeof WebAssembly === "undefined" || typeof Worker === "undefined") {
   startEngine();
 }
 loadSamples().catch((e) => setStatus(`${T.error}: ${e.message}`, "error"));
+
+// The service worker makes the playground installable and lets it open offline (sw.js). It needs a
+// secure origin (https, or localhost); elsewhere the page simply runs without it.
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(() => undefined);
+}
