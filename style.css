@@ -291,6 +291,9 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
 .status-item { white-space: nowrap; }
 
 /* Narrow screens: the sidebars and the panel stack under the editor, collapsed. */
+/* The app bar is for phones only (below); on a desktop it is not shown, whatever the header rule says. */
+.appbar { display: none; margin: 0; padding: 0; border: 0; }
+
 /* The scrim is hidden on a desktop: it is only for the phone sheets (below). */
 .scrim { display: none; }
 /* The phone's navigation bar is for phones only (see the block below). */
