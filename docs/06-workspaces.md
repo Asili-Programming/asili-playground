@@ -1,9 +1,27 @@
-# Asili Playground — Projects
+# Asili Playground — Workspaces
 
 As of 8 November 2026 · Victor Kaiuki
 
 A project is a named set of Asili files that the playground keeps, exports and imports. Samples
 stay read-only; a sample can be saved as a project to edit it.
+
+A workspace is the set of Asili files the playground keeps, shows, exports and imports. The
+interface says "workspace", as VS Code does; there is no separate "project" concept.
+
+## How VS Code's workspaces work (the model used here)
+
+Checked against VS Code's documentation (Multi-root Workspaces, code.visualstudio.com):
+
+- A workspace is the folder or folders open in the window. By default it is one root folder.
+- The **Explorer** shows each root as a collapsible tree, with the root's name at the top.
+- A workspace can be saved to a file (`.code-workspace`, a JSON list of roots and settings) and
+  reopened. Until it is saved, it is kept only for the session.
+- Workspace commands live in the **File** menu (New Window, Open Workspace, Save Workspace As,
+  Add Folder); the Explorer's header holds only the file commands (new file, new folder, collapse).
+
+Here the workspace has one root: its files, shown under the workspace's name in the Explorer. A
+saved workspace is a `.asili.json` file. The playground keeps workspaces in the browser; File menu
+commands open, save, export, import, rename and delete them.
 
 ## The model
 
@@ -48,7 +66,8 @@ A workspace is a directory tree, as on an operating system:
 
 ## The Explorer tree
 
-The Explorer shows the workspace as a tree, as an operating system's file manager does:
+The Explorer shows the workspace as a tree, with the workspace's name as its root. Its header has
+three buttons: New file, New folder, Collapse all. The workspace is managed from the File menu:
 
 - **Folders** come first, then files, each group sorted by name. A folder has a chevron: it opens and
   closes on a click. Which folders are open is remembered per workspace.

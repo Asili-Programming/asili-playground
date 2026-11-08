@@ -39,5 +39,5 @@ Notes on what is not available in this build:
 - The vendored editor has no search or bracket-closing package. Find and Go to line are built on the
   editor's own selection and decorations, not the `@codemirror/search` package, because installing
   npm packages is not part of the playground build.
-- Folders in the explorer are not part of the project model yet (`docs/06-projects.md`); a project's
+- Folders in the explorer are not part of the project model yet (`docs/06-workspaces.md`); a project's
   files stay flat.

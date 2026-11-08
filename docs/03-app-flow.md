@@ -110,7 +110,7 @@ a short pause after the last keystroke.
 4. **Hamisha nje** downloads `<name>.asili.json`. **Ingiza** loads one, checked before it is kept.
 5. A sample opened with **Hifadhi kama mradi** becomes a project, so it can be edited and saved.
 
-See [06-projects.md](06-projects.md) for the model, the storage and the export format.
+See [06-workspaces.md](06-workspaces.md) for the model, the storage and the export format.
 
 ## Flow 7: work the way VS Code does
 
