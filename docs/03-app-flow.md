@@ -185,6 +185,54 @@ documented views and layout model). It is built from the registries, not written
 Separators divide the groups, as in VS Code. A view that cannot show (its region is hidden) still
 opens: showing it makes its region visible.
 
+## Page states
+
+The page has four state machines that run side by side. Each one has a start state, and every
+transition named here is reachable from the menus, the palette or a key.
+
+**Engine:** `Loading` → `Ready` (or `Failed`, which offers Retry). `Ready` → `Running` (Run, F5 or
+Ctrl+Enter) → `Ready` when the program finishes, or `Stopped` (Stop), which also returns to `Ready`
+with a new worker. `Unsupported` is a start state for browsers without WebAssembly.
+
+**Workspace:** `None` (only at first use, before a sample is opened) → `Clean` (every file equals its
+saved text) ⇄ `Dirty` (an open file differs from its saved text). Save → `Clean`. Opening another
+workspace from `Dirty` asks first: Save → open, Don't save → open, Cancel → stay.
+
+**Document:** each open file is `Clean` or `Modified`; a closed `Modified` file asks once (× or Alt+W,
+then again to discard).
+
+**Engine marks:** `Idle` → `Checking` (after an edit, after 400 ms) → `Checked` (its problems are
+shown). An edit sends the file back to `Checking`.
+
+## Toggles
+
+Every on/off setting is one toggle (`settings.js`): one definition with its start value, a saved
+value, and one place where the commands, the keys and the menus read it. A toggle flips on each press,
+and two presses return it to its start state.
+
+| Toggle | Start | Saved | Key | Menu | Shows |
+| --- | --- | --- | --- | --- | --- |
+| Primary sidebar (`primary`) | on | yes | Ctrl+B | Appearance, dot | the Explorer |
+| Secondary sidebar (`secondary`) | off | yes | Alt+B | Appearance, dot | the Board |
+| Bottom panel (`panel`) | on | yes | Ctrl+J | Appearance, dot | Output, Problems |
+| Word wrap (`wrap`) | off | yes | Alt+Z | Appearance, dot | long lines |
+| Light colour theme (`light`) | the system's setting | yes | — | Appearance, dot | the page colours |
+
+Rules that apply to every toggle:
+
+- **Showing a view** (from the menu, the palette, a drag, or the Board opening on a pin event) shows
+  its region through the region's toggle. Opening the Board on a pin event is not saved: the next visit
+  starts with the Board as the user left it.
+- **Embed mode** (`?embed=1`) forces the sidebars off. Forced values are shown but not saved, so
+  leaving embed mode gives the saved layout back.
+- **A region with no views** is hidden whatever its toggle says.
+- A toggle's menu item shows a dot while the toggle is on, and the dot is correct after every change
+  (the menus redraw on each change).
+
+The menus, the palette and the find bar are open or closed too: a menu closes on a click outside it or
+Escape, the palette closes on Escape or a choice, and the find bar closes on Escape or ×. Opening one
+closes the others.
+
 ## Edge cases
 
 | Situation | What the user sees |
