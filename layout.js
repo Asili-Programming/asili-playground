@@ -109,7 +109,7 @@ export function renderShell(root, { t, embed = false }) {
     details.append(el("summary", { "data-i18n": menu.label }, t(menu.label)));
     const items = el("div", { class: "menu-items" });
     const entries = typeof menu.items === "function" ? menu.items() : menu.items;
-    appendMenuItems(items, entries.filter(keep), details, t);
+    appendMenuItems(items, entries.filter(keep), details, t, keep);
     details.append(items);
     menubar.append(details);
   }
@@ -242,7 +242,7 @@ function applyStoredSizes() {
 
 // The items of a menu: buttons (with their key), separators, and submenus (an item whose
 // `submenu` lists items of its own).
-function appendMenuItems(container, entries, details, t) {
+function appendMenuItems(container, entries, details, t, keep) {
   for (const item of entries) {
     if (item.separator) {
       container.append(el("hr", { class: "menu-sep", role: "separator" }));
@@ -259,7 +259,7 @@ function appendMenuItems(container, entries, details, t) {
         body.hidden = !open;
         head.setAttribute("aria-expanded", String(open));
       });
-      appendMenuItems(body, item.submenu.filter(keep), details, t);
+      appendMenuItems(body, item.submenu.filter(keep), details, t, keep);
       sub.append(head, body);
       container.append(sub);
       continue;
