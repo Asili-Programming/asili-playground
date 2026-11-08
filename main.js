@@ -68,6 +68,14 @@ const STRINGS = {
     rename: "Badilisha jina", duplicate: "Nakili faili", delete: "Futa", projectRename: "Badilisha jina",
     projectDelete: "Futa nafasi ya kazi", projectDeleted: "Nafasi ya kazi imefutwa", fileRenamed: "Faili limebadilishwa jina",
     problemsIn: "Makosa", noProblemsInProject: "Hakuna makosa kwenye mradi", lightLabel: "Mwanga", darkLabel: "Giza",
+    errBadName: "Jina si sahihi: tumia herufi, namba na _", errFileExists: "Faili tayari lipo",
+    errTooManyFiles: "Idadi ya mafaili imefikiwa", errEntryDelete: "kuu.as haiwezi kufutwa",
+    errEntryRename: "kuu.as haiwezi kubadilishwa jina", errFileMissing: "Faili halipo",
+    errNotJson: "Faili hili si JSON", errNotAsili: "Faili hili si nafasi ya kazi ya Asili",
+    errVersion: "Toleo hili halitambuliki", errNoName: "Nafasi ya kazi haina jina",
+    errNoFiles: "Nafasi ya kazi haina mafaili", errNoEntry: "Nafasi ya kazi haina kuu.as",
+    errNotAsiliFile: "Si faili la Asili", errNotText: "Si maandishi", errFileTooBig: "Faili ni kubwa mno",
+    errProjectTooBig: "Nafasi ya kazi ni kubwa mno",
     lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
@@ -109,6 +117,14 @@ const STRINGS = {
     rename: "Rename", duplicate: "Duplicate", delete: "Delete", projectRename: "Rename",
     projectDelete: "Delete workspace", projectDeleted: "Workspace deleted", fileRenamed: "File renamed",
     problemsIn: "Problems", noProblemsInProject: "No problems in the project", lightLabel: "Light", darkLabel: "Dark",
+    errBadName: "Name is not valid: use letters, digits and _", errFileExists: "A file with this name already exists",
+    errTooManyFiles: "The workspace has reached its file limit", errEntryDelete: "kuu.as cannot be deleted",
+    errEntryRename: "kuu.as cannot be renamed", errFileMissing: "File not found",
+    errNotJson: "This file is not JSON", errNotAsili: "This file is not an Asili workspace",
+    errVersion: "This version is not recognised", errNoName: "The workspace has no name",
+    errNoFiles: "The workspace has no files", errNoEntry: "The workspace has no kuu.as",
+    errNotAsiliFile: "Not an Asili file", errNotText: "Not text", errFileTooBig: "The file is too large",
+    errProjectTooBig: "The workspace is too large",
     lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
@@ -1038,7 +1054,7 @@ async function importFile(file) {
     renderProjectSection();
     note(T.importedNote, "ok");
   } catch (e) {
-    note(`${T.importFailed}: ${e.message}`, "error");
+    note(`${T.importFailed}: ${errText(e)}`, "error");
   }
 }
 
@@ -1546,7 +1562,10 @@ function deleteActiveProject(button) {
 }
 
 function errText(e) {
-  if (e instanceof Error && e.key) return `${T[e.key] ?? e.key}${e.detail ? `: ${e.detail}` : ""}`;
+  if (e instanceof Error && e.key) {
+    const text = T[`err${e.key[0].toUpperCase()}${e.key.slice(1)}`] ?? e.key;
+    return `${text}${e.detail ? `: ${e.detail}` : ""}`;
+  }
   return e.message;
 }
 
