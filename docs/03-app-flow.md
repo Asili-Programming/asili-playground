@@ -102,6 +102,43 @@ a short pause after the last keystroke.
 2. Picking a module that cannot run in a browser (for example a file-system module) shows the
    browser support note instead of failing at run time.
 
+## Flow 6: projects
+
+1. **Faili > Mradi mpya** creates a project with `kuu.as`. The sidebar lists its files with their status.
+2. The name field in the sidebar creates a file: `msaidizi` becomes `msaidizi.as`.
+3. Edits mark the file modified; **Ctrl+S** saves the project to the browser.
+4. **Hamisha nje** downloads `<name>.asili.json`. **Ingiza** loads one, checked before it is kept.
+5. A sample opened with **Hifadhi kama mradi** becomes a project, so it can be edited and saved.
+
+See [06-projects.md](06-projects.md) for the model, the storage and the export format.
+
+## Flow 7: work the way VS Code does
+
+The IDE follows VS Code's conventions where they fit a browser page, so someone who knows VS Code
+finds the same keys and places.
+
+- **Activity bar** (far left, one button per sidebar view): Explorer (projects and files), Samples,
+  and Board. Each button shows or hides its sidebar, or focuses it when it is already shown.
+- **Command palette** (Ctrl+Shift+P, or F1): every command by name, filtered as you type. Commands
+  come from the same registry as the menus, so a command in a menu is also in the palette.
+- **Keys:**
+
+| Key | Command |
+| --- | --- |
+| Ctrl+Shift+P, F1 | Command palette |
+| Ctrl+S | Save the project |
+| Ctrl+Enter, F5 | Run |
+| Shift+F5 | Stop |
+| Ctrl+B | Show or hide the primary sidebar |
+| Alt+B | Show or hide the secondary sidebar (Board) |
+| Ctrl+J | Show or hide the bottom panel |
+| Ctrl+W | Close the active tab |
+| Ctrl+N | Focus the new-file name field |
+| Ctrl+Shift+M | Show the Problems panel |
+| Ctrl+Shift+E | Focus the Explorer |
+
+Keys are not taken while the focus is in a text field, except the palette and Ctrl+S.
+
 ## Edge cases
 
 | Situation | What the user sees |

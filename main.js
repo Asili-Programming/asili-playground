@@ -4,9 +4,14 @@
 
 import { encodeShare, decodeShare } from "./share.js";
 import {
-  addMenu, addToolbarItem, addSidebarSection, addPanel, addStatusItem, renderShell, setBrand,
+  ENTRY, newProject, newId, projectFromSample, addFile, deleteFile, fileStatus, importProject,
+  exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf,
+} from "./project.js";
+import {
+  addMenu, addToolbarItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
   showPanel, setRegionVisible, regionVisible, refreshMenus,
 } from "./layout.js";
+import { registerCommand, runCommand, installKeys, openPalette } from "./commands.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
@@ -41,6 +46,16 @@ const STRINGS = {
     explorer: "Faili", samples: "Mifano", openFiles: "Mafaili yaliyo wazi", editor: "Msimbo",
     panel: "Paneli ya chini", problems: "Matatizo", noProblems: "Hakuna makosa",
     subtitle: "Uwanja wa Kuchezea",
+    projectSection: "Mradi", filesSection: "Faili za mradi", projectName: "Jina la mradi",
+    newProject: "Mradi mpya", exportProject: "Hamisha nje", importProject: "Ingiza", saveProject: "Hifadhi",
+    saveAsProject: "Hifadhi kama mradi", newFile: "Unda faili", fileName: "jina la faili",
+    deleteFile: "Futa", confirmDelete: "Thibitisha kufuta", noProject: "Hakuna mradi bado",
+    stSaved: "imehifadhiwa", stModified: "imebadilishwa", stErrors: "makosa", noFiles: "Hakuna faili",
+    savedNote: "Mradi umehifadhiwa", importedNote: "Mradi umeingizwa", exportedNote: "Mradi umehamishwa",
+    storageOff: "Hifadhi haipatikani kwenye kivinjari hiki: mradi hautabaki", importFailed: "Kuingiza kumeshindikana",
+    dirtyWarn: "Mabadiliko hayajahifadhiwa", menuProject: "Mradi", fileNew: "Mradi mpya",
+    activityBar: "Upau wa vitendo", explorer: "Faili", board: "Bodi pepe", problems: "Matatizo",
+    menuPalette: "Amri",
   },
   en: {
     title: "Asili — Playground",
@@ -61,6 +76,16 @@ const STRINGS = {
     explorer: "Explorer", samples: "Samples", openFiles: "Open files", editor: "Code",
     panel: "Bottom panel", problems: "Problems", noProblems: "No problems",
     subtitle: "Playground",
+    projectSection: "Project", filesSection: "Project files", projectName: "Project name",
+    newProject: "New project", exportProject: "Export", importProject: "Import", saveProject: "Save",
+    saveAsProject: "Save as project", newFile: "Create file", fileName: "file name",
+    deleteFile: "Delete", confirmDelete: "Confirm delete", noProject: "No project yet",
+    stSaved: "saved", stModified: "modified", stErrors: "errors", noFiles: "No files",
+    savedNote: "Project saved", importedNote: "Project imported", exportedNote: "Project exported",
+    storageOff: "Storage is not available in this browser: the project will not be kept", importFailed: "Import failed",
+    dirtyWarn: "Unsaved changes", menuProject: "Project", fileNew: "New project",
+    activityBar: "Activity bar", explorer: "Explorer", board: "Board", problems: "Problems",
+    menuPalette: "Commands",
   },
 };
 const T = STRINGS[lang];
@@ -85,12 +110,49 @@ setBrand({ logo: "logo-mark.svg", title: "Asili", subtitle: "subtitle" });
 const isEmbed = new URLSearchParams(location.search).get("embed") === "1";
 document.body.classList.toggle("embed", isEmbed);
 
+// Commands are registered once; the menus, the palette and the keys all run them.
+registerCommand({ id: "palette.open", title: "Command palette", key: ["Ctrl+Shift+P", "F1"],
+  inEditor: true, inInput: true, run: () => openPalette() });
+registerCommand({ id: "project.new", title: "New project", run: () => newProjectFromInput() });
+registerCommand({ id: "project.save", title: "Save project", key: "Ctrl+S", inEditor: true, inInput: true,
+  run: () => saveActiveProject(), enabled: () => !!activeDoc?.projectId });
+registerCommand({ id: "project.saveAsProject", title: "Save sample as project", run: () => saveSampleAsProject(),
+  enabled: () => !!activeDoc && !activeDoc.projectId });
+registerCommand({ id: "project.export", title: "Export project", run: () => exportActiveProject(),
+  enabled: () => !!activeProject() });
+registerCommand({ id: "project.import", title: "Import project", run: () => document.getElementById("import-file").click() });
+registerCommand({ id: "file.new", title: "New file", key: "Ctrl+N", inEditor: true,
+  run: () => { setRegionVisible("primary", true); document.getElementById("file-name")?.focus(); } });
+registerCommand({ id: "file.close", title: "Close tab", key: "Ctrl+W", inEditor: true,
+  run: () => closeDoc(activeDoc), enabled: () => docs.length > 1 });
+registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
+registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEditor: true, inInput: true,
+  run: () => run(), enabled: () => engineReady && !busy });
+registerCommand({ id: "run.stop", title: "Stop", key: "Shift+F5", inEditor: true, inInput: true,
+  run: () => stop(), enabled: () => busy });
+registerCommand({ id: "view.primary", title: "Toggle primary sidebar", key: "Ctrl+B", inEditor: true,
+  run: () => setRegionVisible("primary", !regionVisible("primary")) });
+registerCommand({ id: "view.secondary", title: "Toggle secondary sidebar (Board)", key: "Alt+B", inEditor: true,
+  run: () => setRegionVisible("secondary", !regionVisible("secondary")) });
+registerCommand({ id: "view.panel", title: "Toggle bottom panel", key: "Ctrl+J", inEditor: true,
+  run: () => setRegionVisible("panel", !regionVisible("panel")) });
+registerCommand({ id: "view.problems", title: "Show problems", key: "Ctrl+Shift+M", inEditor: true,
+  run: () => { setRegionVisible("panel", true); showPanel("problems"); } });
+registerCommand({ id: "view.explorer", title: "Focus explorer", key: "Ctrl+Shift+E", inEditor: true,
+  run: () => { setRegionVisible("primary", true); document.getElementById("file-list")?.focus(); } });
+registerCommand({ id: "help.wiki", title: "Asili wiki",
+  run: () => window.open("https://github.com/Asili-Programming/Asili/wiki", "_blank", "noopener") });
+
 addMenu({
   id: "faili", label: "menuFile", order: 10, optional: true,
   items: [
-    { id: "share-btn", label: "share", optional: true, run: () => shareCurrent() },
-    { id: "close-tab-btn", label: "closeTab", optional: true,
-      run: () => closeDoc(activeDoc), enabled: () => docs.length > 1 },
+    { id: "menu-project-new", label: "newProject", command: "project.new" },
+    { id: "menu-project-save", label: "saveProject", command: "project.save" },
+    { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
+    { id: "menu-project-export", label: "exportProject", command: "project.export" },
+    { id: "menu-project-import", label: "importProject", command: "project.import" },
+    { id: "share-btn", label: "share", optional: true, command: "share.link" },
+    { id: "close-tab-btn", label: "closeTab", optional: true, command: "file.close" },
   ],
 });
 addMenu({
@@ -103,28 +165,30 @@ addMenu({
 addMenu({
   id: "endesha", label: "menuRun", order: 30,
   items: [
-    { id: "menu-run-btn", label: "run", run: () => run(), enabled: () => engineReady && !busy },
-    { id: "menu-stop-btn", label: "stop", run: () => stop(), enabled: () => busy },
+    { id: "menu-run-btn", label: "run", command: "run.start" },
+    { id: "menu-stop-btn", label: "stop", command: "run.stop" },
   ],
 });
 addMenu({
   id: "mwonekano", label: "menuView", order: 40, optional: true,
   items: [
-    { id: "toggle-primary", label: "togglePrimary",
-      run: () => setRegionVisible("primary", !regionVisible("primary")) },
-    { id: "toggle-secondary", label: "toggleSecondary",
-      run: () => setRegionVisible("secondary", !regionVisible("secondary")) },
-    { id: "toggle-panel", label: "togglePanel",
-      run: () => setRegionVisible("panel", !regionVisible("panel")) },
+    { id: "toggle-primary", label: "togglePrimary", command: "view.primary" },
+    { id: "toggle-secondary", label: "toggleSecondary", command: "view.secondary" },
+    { id: "toggle-panel", label: "togglePanel", command: "view.panel" },
+    { id: "menu-palette", label: "menuPalette", command: "palette.open" },
   ],
 });
 addMenu({
   id: "msaada", label: "menuHelp", order: 50, optional: true,
   items: [
-    { id: "wiki-link", label: "wiki",
-      run: () => window.open("https://github.com/Asili-Programming/Asili/wiki", "_blank", "noopener") },
+    { id: "wiki-link", label: "wiki", command: "help.wiki" },
   ],
 });
+
+addActivity({ id: "act-explorer", title: "explorer", icon: "📁", order: 10, run: () => runCommand("view.explorer") });
+addActivity({ id: "act-board", title: "board", icon: "🔌", order: 20, run: () => runCommand("view.secondary") });
+addActivity({ id: "act-problems", title: "problems", icon: "⚠", order: 30, run: () => runCommand("view.problems") });
+addActivity({ id: "act-palette", title: "menuPalette", icon: "⌘", order: 40, run: () => runCommand("palette.open") });
 
 addToolbarItem({ id: "run-btn", label: "run", className: "primary", order: 10,
   run: () => run(), enabled: () => engineReady && !busy });
@@ -144,12 +208,32 @@ addSidebarSection("primary", {
   },
 });
 addSidebarSection("primary", {
-  id: "open", title: "openFiles", order: 20,
-  render(container) {
-    const list = document.createElement("ul");
-    list.id = "open-files";
-    list.className = "open-files";
-    container.append(list);
+  id: "project", title: "projectSection", order: 20,
+  render(container, t) {
+    container.innerHTML = `
+      <select id="project-picker" aria-label="${t("projectSection")}"></select>
+      <div class="sidebar-row">
+        <input id="project-name" type="text" placeholder="${t("projectName")}" aria-label="${t("projectName")}" />
+        <button id="project-new-btn" type="button">${t("newProject")}</button>
+      </div>
+      <div class="sidebar-row">
+        <button id="project-save-btn" type="button">${t("saveProject")}</button>
+        <button id="project-export-btn" type="button">${t("exportProject")}</button>
+        <button id="project-import-btn" type="button">${t("importProject")}</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden />
+      </div>
+      <p id="project-note" class="sidebar-note" role="status"></p>`;
+  },
+});
+addSidebarSection("primary", {
+  id: "files", title: "filesSection", order: 30,
+  render(container, t) {
+    container.innerHTML = `
+      <ul id="file-list" class="open-files" aria-label="${t("filesSection")}"></ul>
+      <div class="sidebar-row">
+        <input id="file-name" type="text" placeholder="${t("fileName")}" aria-label="${t("fileName")}" />
+        <button id="file-create-btn" type="button">${t("newFile")}</button>
+      </div>`;
   },
 });
 addSidebarSection("secondary", {
@@ -292,7 +376,17 @@ let checkTimer = null;
 function requestCheck() {
   if (!engineReady || !worker) return;
   checkSeq += 1;
-  worker.postMessage({ type: "check", seq: checkSeq, source: editor.state.doc.toString() });
+  // The other modules of the active project, so `leta <module>` is not reported as unknown.
+  const p = activeDoc?.projectId ? projectById(activeDoc.projectId) : null;
+  const modules = p ? Object.keys(p.files).filter((f) => f !== activeDoc.file).map(moduleOf) : [];
+  worker.postMessage({ type: "check", seq: checkSeq, source: editor.state.doc.toString(), modules });
+}
+
+// The tabs and the file list show unsaved changes; they follow edits after a short pause.
+let tabsTimer = null;
+function scheduleTabs() {
+  clearTimeout(tabsTimer);
+  tabsTimer = setTimeout(() => renderTabs(), 150);
 }
 
 function scheduleCheck() {
@@ -319,7 +413,11 @@ const state0 = () => EditorState.create({
     EditorView.lineWrapping,
     diagnosticField,
     EditorView.updateListener.of((update) => {
-      if (update.docChanged) scheduleCheck();
+      if (update.docChanged) {
+        if (activeDoc) activeDoc.text = update.state.doc.toString();
+        scheduleCheck();
+        scheduleTabs();
+      }
       if (update.docChanged || update.selectionSet) updateCursor(update.state);
     }),
     EditorView.contentAttributes.of({ "aria-label": T.editor }),
@@ -491,10 +589,16 @@ function run() {
   stopBtn.disabled = false;
   setStatus(T.running);
   // The sample's scripted pin levels (manifest `inputs`), flattened to saa, pini, hali triples.
+  // A project with more than one file runs as a bundle: the entry is kuu, and each file is a module.
+  const p = activeDoc?.projectId ? projectById(activeDoc.projectId) : null;
+  const bundle = p && Object.keys(p.files).length > 1
+    ? { entry: "kuu", modules: bundleOf(liveProject(p)) }
+    : null;
   worker.postMessage({
     type: "run",
     source: editor.state.doc.toString(),
     board: currentInputs.flat(),
+    bundle,
   });
 }
 
@@ -516,9 +620,25 @@ function stop() {
 let currentInputs = [];
 let samplesById = new Map();
 
-// ---- Editor tabs: one document per open program ----------------------------------------------
-// Each document keeps its text and its scripted pin levels. The editor shows the active one;
-// switching saves the text being edited and loads the other (undo history is per session only).
+// ---- Documents: the tabs ---------------------------------------------------------------------
+// A document is an open file: a project file (key "p:<project>:<file>") or a sample (key
+// "s:<file>"). Its text is the editor's text while it is active, and its last text otherwise.
+// `docs` and `activeDoc` are declared with the shell above.
+
+function projectById(id) {
+  return projects.find((p) => p.id === id) ?? null;
+}
+function activeProject() {
+  return projectById(activeProjectId);
+}
+let projects = loadProjects();
+let activeProjectId = projects[0]?.id ?? null;
+
+function isDirty(d) {
+  const p = d.projectId ? projectById(d.projectId) : null;
+  return !!p && fileStatus(p, d.file, d.text) === "modified";
+}
+
 function renderTabs() {
   const bar = document.getElementById("doc-tabs");
   bar.replaceChildren();
@@ -527,34 +647,35 @@ function renderTabs() {
     tab.className = "doc-tab";
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(d === activeDoc));
-    tab.dataset.doc = d.id;
+    tab.dataset.doc = d.key;
     if (d.error) {
       const dot = document.createElement("span");
       dot.className = "dot-error";
       dot.textContent = "●";
       tab.append(dot);
     }
-    tab.append(document.createTextNode(d.name));
+    const name = document.createElement("span");
+    const owner = d.projectId ? projectById(d.projectId) : null;
+    name.textContent = owner ? `${owner.name}/${d.file}` : d.name;
+    if (isDirty(d)) {
+      name.className = "dirty";
+      name.title = T.dirtyWarn;
+    }
+    tab.append(name);
     tab.addEventListener("click", () => activate(d));
     bar.append(tab);
   }
-  const list = document.getElementById("open-files");
-  list.replaceChildren(...docs.map((d) => {
-    const li = document.createElement("li");
-    li.textContent = d.name;
-    li.setAttribute("aria-current", String(d === activeDoc));
-    li.addEventListener("click", () => activate(d));
-    return li;
-  }));
+  renderFiles();
 }
 
-function openDoc(id, name, text, inputs = []) {
-  let d = docs.find((x) => x.id === id);
+function openDoc(key, name, text, extra = {}) {
+  let d = docs.find((x) => x.key === key);
   if (!d) {
-    d = { id, name, text, inputs, error: false };
+    d = { key, name, text, inputs: [], error: false, projectId: null, file: null, ...extra };
     docs.push(d);
   }
   activate(d);
+  return d;
 }
 
 function activate(d) {
@@ -566,6 +687,8 @@ function activate(d) {
   editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: d.text } });
   renderProblems([]);
   renderTabs();
+  if (d.projectId) activeProjectId = d.projectId;
+  renderProjectSection();
   refreshMenus();
 }
 
@@ -582,10 +705,206 @@ function closeDoc(d) {
   refreshMenus();
 }
 
+function openProjectFile(p, file) {
+  return openDoc(`p:${p.id}:${file}`, file, p.files[file], { projectId: p.id, file });
+}
+
 async function openSample(file) {
   const sample = samplesById.get(file);
   const res = await fetch(`samples/${file}`);
-  openDoc(file, file, await res.text(), sample?.inputs ?? []);
+  return openDoc(`s:${file}`, file, await res.text(), { inputs: sample?.inputs ?? [] });
+}
+
+// The text a project file has now: the open document's text, or the saved text.
+function liveText(p, file) {
+  const d = docs.find((x) => x.key === `p:${p.id}:${file}`);
+  return d ? d.text : p.files[file];
+}
+function liveProject(p) {
+  return { ...p, files: Object.fromEntries(Object.keys(p.files).map((f) => [f, liveText(p, f)])) };
+}
+
+// ---- Projects: create, save, export, import --------------------------------------------------
+function note(text, kind = "ok") {
+  const el = document.getElementById("project-note");
+  if (el) {
+    el.textContent = text;
+    el.className = `sidebar-note ${kind}`;
+  }
+  setStatus(text, kind);
+}
+
+function persistProjects() {
+  if (saveProjects(projects)) return true;
+  note(T.storageOff, "error");
+  return false;
+}
+
+function saveActiveProject() {
+  const p = activeProject();
+  if (!p) return;
+  for (const d of docs) {
+    if (d.projectId === p.id) p.files[d.file] = d.text;
+  }
+  p.updated = new Date().toISOString();
+  if (persistProjects()) note(T.savedNote, "ok");
+  renderTabs();
+  renderProjectSection();
+}
+
+function createProject(name) {
+  const p = newProject(name);
+  p.id = newId();
+  projects.push(p);
+  activeProjectId = p.id;
+  persistProjects();
+  openProjectFile(p, ENTRY);
+  renderProjectSection();
+  return p;
+}
+
+function newProjectFromInput() {
+  const name = document.getElementById("project-name")?.value.trim() || `Mradi ${projects.length + 1}`;
+  createProject(name);
+  note(T.savedNote, "ok");
+}
+
+function saveSampleAsProject() {
+  if (!activeDoc || activeDoc.projectId) return;
+  const p = projectFromSample(activeDoc.name.replace(/\.as$/, ""), editor.state.doc.toString());
+  p.id = newId();
+  projects.push(p);
+  activeProjectId = p.id;
+  persistProjects();
+  openProjectFile(p, ENTRY);
+  renderProjectSection();
+}
+
+function exportActiveProject() {
+  const p = activeProject();
+  if (!p) return;
+  const copy = liveProject(p);
+  const blob = new Blob([exportProject(copy)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${p.name.replace(/[^A-Za-z0-9_ -]+/g, "_")}.asili.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  note(T.exportedNote, "ok");
+}
+
+async function importFile(file) {
+  try {
+    const project = importProject(await file.text());
+    project.name = uniqueName(project.name, projects.map((x) => x.name));
+    project.id = newId();
+    projects.push(project);
+    activeProjectId = project.id;
+    persistProjects();
+    openProjectFile(project, ENTRY);
+    renderProjectSection();
+    note(T.importedNote, "ok");
+  } catch (e) {
+    note(`${T.importFailed}: ${e.message}`, "error");
+  }
+}
+
+// ---- Files: create, delete, and their status --------------------------------------------------
+function createFileFromInput() {
+  const p = activeProject();
+  const input = document.getElementById("file-name");
+  if (!p || !input) return;
+  try {
+    const module = input.value.trim();
+    const file = addFile(p, module, "");
+    persistProjects();
+    input.value = "";
+    openProjectFile(p, file);
+    renderFiles();
+  } catch (e) {
+    note(e.message, "error");
+  }
+}
+
+function deleteProjectFile(p, file, button) {
+  if (button.dataset.armed !== "yes") {
+    button.dataset.armed = "yes";
+    button.textContent = T.confirmDelete;
+    setTimeout(() => {
+      button.dataset.armed = "";
+      button.textContent = T.deleteFile;
+    }, 3000);
+    return;
+  }
+  try {
+    deleteFile(p, file);
+  } catch (e) {
+    note(e.message, "error");
+    return;
+  }
+  for (const d of docs.filter((x) => x.key === `p:${p.id}:${file}`)) closeDoc(d);
+  persistProjects();
+  renderTabs();
+}
+
+function renderProjectSection() {
+  const picker = document.getElementById("project-picker");
+  if (!picker) return;
+  picker.replaceChildren(...(projects.length
+    ? projects.map((p) => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      opt.selected = p.id === activeProjectId;
+      return opt;
+    })
+    : [Object.assign(document.createElement("option"), { textContent: T.noProject, value: "" })]));
+  const has = !!activeProject();
+  for (const id of ["project-save-btn", "project-export-btn"]) {
+    const b = document.getElementById(id);
+    if (b) b.disabled = !has;
+  }
+  refreshMenus();
+}
+
+function renderFiles() {
+  const list = document.getElementById("file-list");
+  if (!list) return;
+  list.tabIndex = -1;
+  const p = activeProject();
+  list.replaceChildren();
+  if (!p) return;
+  for (const file of Object.keys(p.files)) {
+    const li = document.createElement("li");
+    const open = docs.find((x) => x.key === `p:${p.id}:${file}`);
+    const status = fileStatus(p, file, liveText(p, file)) === "modified" ? T.stModified : T.stSaved;
+    li.dataset.file = file;
+    li.setAttribute("aria-current", String(open !== undefined && open === activeDoc));
+    const name = document.createElement("span");
+    name.textContent = file;
+    name.addEventListener("click", () => openProjectFile(p, file));
+    const meta = document.createElement("span");
+    meta.className = "file-meta";
+    meta.textContent = `${status}${open?.error ? ` · ${T.stErrors}` : ""}`;
+    li.append(name, meta);
+    if (file !== ENTRY) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "file-delete";
+      del.textContent = T.deleteFile;
+      del.addEventListener("click", () => deleteProjectFile(p, file, del));
+      li.append(del);
+    }
+    list.append(li);
+  }
+  if (Object.keys(p.files).length === 0) {
+    const none = document.createElement("li");
+    none.className = "none";
+    none.textContent = T.noFiles;
+    list.append(none);
+  }
 }
 
 // ---- Problems: the diagnostics of the active document -----------------------------------------
@@ -643,6 +962,7 @@ async function shareCurrent() {
   }
 }
 
+// ---- Start-up --------------------------------------------------------------------------------
 async function loadSamples() {
   const res = await fetch("samples/manifest.json");
   const manifest = await res.json();
@@ -654,17 +974,21 @@ async function loadSamples() {
     opt.textContent = (lang === "en" && sample.label_en) ? sample.label_en : sample.label;
     picker.appendChild(opt);
   }
-  // A share link (#k=) wins over the sample; ?sample=<id> picks the sample; otherwise the first.
+  // A share link (#k=) wins; then the active project's entry; then the sample ?sample= or the first.
   let opened = false;
   if (location.hash.startsWith("#k=")) {
     try {
       const files = await decodeShare(location.hash.slice(3));
       const [name, text] = Object.entries(files)[0];
-      openDoc("link", name, text, []);
+      openDoc("link", name, text);
       opened = true;
     } catch {
       setStatus(T.linkBad, "error");
     }
+  }
+  if (!opened && activeProject()) {
+    openProjectFile(activeProject(), ENTRY);
+    opened = true;
   }
   if (!opened && manifest.length > 0) {
     const sampleId = new URLSearchParams(location.search).get("sample");
@@ -672,7 +996,30 @@ async function loadSamples() {
     picker.value = wanted.file;
     await openSample(wanted.file);
   }
+  renderProjectSection();
+  renderFiles();
 }
+
+// Wire the sidebar controls (they exist once the shell is rendered).
+document.getElementById("project-picker")?.addEventListener("change", (e) => {
+  const p = projectById(e.target.value);
+  if (p) openProjectFile(p, ENTRY);
+});
+document.body.addEventListener("click", (e) => {
+  const id = e.target?.id;
+  if (id === "project-new-btn") newProjectFromInput();
+  if (id === "project-save-btn") saveActiveProject();
+  if (id === "project-export-btn") exportActiveProject();
+  if (id === "project-import-btn") document.getElementById("import-file").click();
+  if (id === "file-create-btn") createFileFromInput();
+});
+document.body.addEventListener("change", (e) => {
+  if (e.target?.id === "import-file" && e.target.files?.[0]) importFile(e.target.files[0]);
+});
+document.body.addEventListener("keydown", (e) => {
+  if (e.target?.id === "file-name" && e.key === "Enter") createFileFromInput();
+  if (e.target?.id === "project-name" && e.key === "Enter") newProjectFromInput();
+});
 
 clearBtn.addEventListener("click", () => {
   outputEl.textContent = "";
@@ -680,13 +1027,8 @@ clearBtn.addEventListener("click", () => {
 runBtn.addEventListener("click", run);
 stopBtn.addEventListener("click", stop);
 
-// Ctrl/Cmd+Enter runs the current source.
-window.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    e.preventDefault();
-    run();
-  }
-});
+// Keys come from the command registry (commands.js).
+installKeys(window);
 
 // ---- Start ----------------------------------------------------------------------------------
 stopBtn.hidden = true;
