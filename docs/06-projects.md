@@ -46,6 +46,21 @@ A workspace is a directory tree, as on an operating system:
 - **Format.** Version 2 has `files` (keyed by path) and `folders` (a list of paths). Version 1 (flat
   `files`) is still imported; its names are paths at the root.
 
+## The Explorer tree
+
+The Explorer shows the workspace as a tree, as an operating system's file manager does:
+
+- **Folders** come first, then files, each group sorted by name. A folder has a chevron: it opens and
+  closes on a click. Which folders are open is remembered per workspace.
+- **Indentation** shows depth. Each file has an icon for its type: Asili (`.as`), Markdown, TOML,
+  lock files, and a generic file for the rest. The entry `kuu.as` is marked as the entry.
+- **Opening:** a click opens a file in a tab. A double click renames it.
+- **Right-click on a file:** Rename, Duplicate, Delete (confirmed with a second click).
+- **Right-click on a folder:** New file, New folder, Rename, Delete (with everything in it, confirmed).
+- **New file / New folder:** the name field makes an item at the root, or in a folder typed as a path
+  (`lib/msaidizi`).
+- Each file's status (saved, modified, errors) shows on its row.
+
 ## Storage
 
 - Projects are kept in the browser (`localStorage`, key `asili-projects-v1`), as a list. Nothing is
