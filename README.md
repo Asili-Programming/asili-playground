@@ -117,3 +117,9 @@ The versions are pinned in `vendor-src/package.json`. Commit the regenerated `ve
   `pata-lsp`'s underlying logic (or a subset of it) as plain synchronous `wasm-bindgen` functions
   the editor calls directly — not a real LSP/JSON-RPC session. Left out of this first pass by
   request; revisit if/when it's wanted.
+
+## Icons
+
+The file and folder icons are the Material Icon Theme, and the interface icons are the Material product
+icon theme (both MIT, as VS Code uses them). The licences and the details are in `icons/material/` and
+`product-icons/`. `icons.js` looks up the icons, and `scripts/test_icons.mjs` checks the lookups.

@@ -18,6 +18,9 @@ import { saveSession, loadSession } from "./session.js";
 import { initSettings, defineToggle, setToggle, toggleSetting, isOn, onToggleChange } from "./settings.js";
 import { MACHINES, createMachine, deriveStates } from "./states.js";
 import {
+  setIconTheme, setProductIcons, fileIconSrc, folderIconSrc, rootFolderIconSrc, productGlyph,
+} from "./icons.js";
+import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
   StreamLanguage, syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching,
@@ -363,7 +366,20 @@ addMenu({
 
 
 // Run and Stop are icons at the right end of the tab row.
-const PLAY_ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>`;
+// Interface icons are the Material product icons (icons.js) by name; the SVG drawn here stays until the
+// icon font is loaded, and where a name has no product icon.
+const productIconHTML = (name, svg) => `<span class="pi" data-pi="${name}" aria-hidden="true">${svg}</span>`;
+function applyProductIcons() {
+  for (const el of document.querySelectorAll("[data-pi]")) {
+    const glyph = productGlyph(el.dataset.pi);
+    if (glyph) {
+      el.textContent = glyph;
+      el.classList.add("on");
+    }
+  }
+}
+
+const PLAY_ICON = productIconHTML("play", `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></svg>`);
 const STOP_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" rx="1.5" fill="currentColor"/></svg>`;
 addTabEndItem({ id: "run-btn", title: "run", icon: PLAY_ICON, order: 10,
   run: () => run(), enabled: () => canRun() });
@@ -384,16 +400,17 @@ addStatusItem({ id: "lugha-switch", order: 90, optional: true, render(slot, t) {
 
 // View icons: the side bars show these, as a column (SVG, no text).
 const svgIcon = (body) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-const ICON_FOLDER = svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>');
-const ICON_BOARD = svgIcon('<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>');
-const ICON_OUTPUT = svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>');
-const ICON_PROBLEMS = svgIcon('<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>');
+
+const ICON_FOLDER = productIconHTML("files", svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'));
+const ICON_BOARD = productIconHTML("pulse", svgIcon('<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>'));
+const ICON_OUTPUT = productIconHTML("output", svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>'));
+const ICON_PROBLEMS = productIconHTML("warning", svgIcon('<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>'));
 
 // The Explorer view (as in VS Code): a header with file commands, then the workspace as the root
 // of its tree. Workspace commands are in the File menu.
-const ICON_NEW_FILE = svgIcon('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/>');
-const ICON_NEW_FOLDER = svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>');
-const ICON_COLLAPSE = svgIcon('<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>');
+const ICON_NEW_FILE = productIconHTML("new-file", svgIcon('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/>'));
+const ICON_NEW_FOLDER = productIconHTML("new-folder", svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>'));
+const ICON_COLLAPSE = productIconHTML("collapse-all", svgIcon('<path d="M7 9l5-5 5 5M7 15l5 5 5-5"/>'));
 addSidebarSection("primary", {
   id: "files", title: "explorer", order: 10, icon: ICON_FOLDER, menu: true, keyHint: "Ctrl+Shift+E",
   render(container, t) {
@@ -1613,9 +1630,14 @@ async function importFile(file) {
 const TREE_ICON = (body, cls) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="ico ${cls}" aria-hidden="true">${body}</svg>`;
 const CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="chev" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 const FOLDER_ICON = TREE_ICON('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', "ico-folder");
+// An explorer icon: the Material theme's image for the file or folder, or the icon drawn here.
+const themeImg = (src) => `<img class="file-icon" src="${src}" alt="" width="16" height="16">`;
+const folderIcon = (name, open) => (folderIconSrc(name, open) ? themeImg(folderIconSrc(name, open)) : FOLDER_ICON);
 const DOC_BODY = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>';
 // The icon of a file by its kind: Asili, Markdown, configuration, lock, or a generic file.
 function fileIcon(file) {
+  const src = fileIconSrc(file);
+  if (src) return themeImg(src);
   const name = file.split("/").pop();
   if (name.endsWith(".as")) return TREE_ICON(DOC_BODY, "ico-as");
   if (name.endsWith(".md")) return TREE_ICON(DOC_BODY, "ico-md");
@@ -1670,7 +1692,7 @@ function renderTreeLevel(p, node, path, depth, list) {
     li.setAttribute("aria-expanded", String(open));
     li.style.paddingLeft = `${0.4 + depth * 0.9}rem`;
     li.draggable = true;
-    li.innerHTML = CHEVRON + FOLDER_ICON;
+    li.innerHTML = CHEVRON + folderIcon(name, open);
     const label = document.createElement("span");
     label.className = "tree-name";
     label.textContent = name;
@@ -1910,7 +1932,7 @@ function workspaceRoot(p) {
   const li = document.createElement("li");
   li.className = "tree-row root";
   li.dataset.workspace = p.id;
-  li.innerHTML = FOLDER_ICON;
+  li.innerHTML = rootFolderIconSrc(true) ? themeImg(rootFolderIconSrc(true)) : FOLDER_ICON;
   const label = document.createElement("span");
   label.className = "tree-name";
   label.textContent = p.name;
@@ -2786,3 +2808,14 @@ loadSamples().catch((e) => setStatus(`${T.error}: ${e.message}`, "error"));
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(() => undefined);
 }
+
+// The icon themes (icons.js) load in the background: the page keeps its own icons until they arrive,
+// then the explorer and the interface icons are drawn with them.
+fetch(new URL("icons/material/theme.json", document.baseURI))
+  .then((r) => r.json())
+  .then((data) => { setIconTheme(data); renderFiles(); })
+  .catch(() => undefined);
+fetch(new URL("product-icons/product-icons.json", document.baseURI))
+  .then((r) => r.json())
+  .then((data) => { setProductIcons(data); applyProductIcons(); })
+  .catch(() => undefined);

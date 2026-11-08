@@ -629,3 +629,11 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 #file-list .explorer-empty button { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
 .explorer-toolbar button:disabled { opacity: 0.4; cursor: default; }
 #problems li.stale { opacity: 0.55; font-style: italic; }
+
+/* Icons (icons.js): the Material product icon font for the interface, and the Material file icons. */
+@font-face { font-family: "Material Product Icons"; src: url("product-icons/material-icons.woff") format("woff"); font-display: block; }
+.pi { display: inline-flex; align-items: center; justify-content: center; width: 1em; height: 1em; line-height: 1; font-size: 18px; }
+.pi svg { width: 1em; height: 1em; }
+.pi.on { font-family: "Material Product Icons", sans-serif; font-size: 18px; }
+.pi.on > svg { display: none; }
+.file-icon { width: 16px; height: 16px; flex: none; vertical-align: middle; }
