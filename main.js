@@ -172,8 +172,7 @@ registerCommand({ id: "file.quickOpen", title: "Go to file", key: "Ctrl+P", inEd
 registerCommand({ id: "edit.find", title: "Find", key: "Ctrl+F", inEditor: true, run: () => openFind("find") });
 registerCommand({ id: "edit.replace", title: "Replace", key: "Ctrl+H", inEditor: true, run: () => openFind("replace") });
 registerCommand({ id: "edit.goToLine", title: "Go to line", key: "Ctrl+G", inEditor: true, run: () => openFind("goto") });
-registerCommand({ id: "edit.comment", title: "Toggle comment", key: "Ctrl+/", inEditor: true,
-  run: () => toggleLineComments() });
+registerCommand({ id: "edit.comment", title: "Toggle comment", run: () => toggleLineComments() });
 registerCommand({ id: "edit.undo", title: "Undo", run: () => undo(editor) });
 registerCommand({ id: "edit.redo", title: "Redo", run: () => redo(editor) });
 registerCommand({ id: "edit.cut", title: "Cut", run: () => { editor.focus(); document.execCommand("cut"); } });
@@ -556,7 +555,8 @@ const state0 = () => EditorState.create({
     bracketMatching(),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     StreamLanguage.define({ ...asiliMode, languageData: { commentTokens: { line: "#" } } }),
-    keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+    // Ctrl+/ is bound here, before the editor's own toggle, so the editor handles it once.
+    keymap.of([{ key: "Mod-/", run: () => { toggleLineComments(); return true; } }, indentWithTab, ...defaultKeymap, ...historyKeymap]),
     themeCell.of(darkThemeExtension()),
     findField,
     // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
