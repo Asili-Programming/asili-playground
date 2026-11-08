@@ -291,12 +291,68 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
 .status-item { white-space: nowrap; }
 
 /* Narrow screens: the sidebars and the panel stack under the editor, collapsed. */
-@media (max-width: 760px) {
-  .workbench { flex-direction: column; overflow: auto; }
-  .sidebar { flex: none; border: none; border-bottom: 1px solid var(--border); }
-  .main { min-height: 70vh; }
-  .ide { height: auto; min-height: 100vh; }
-  body { overflow: auto; }
+/* The scrim is hidden on a desktop: it is only for the phone sheets (below). */
+.scrim { display: none; }
+
+/* ---- Phones (under 720 px): the editor fills the screen. The sidebars and the bottom panel are sheets
+   over it, opened and closed by the same toggles as on a desktop (the scrim closes them). Touch targets
+   are at least 40 px, and the editor text is 16 px so the page does not zoom when a file is focused. */
+@media (max-width: 719px) {
+  html, body { height: 100%; overflow: hidden; }
+  .ide { height: 100vh; height: 100dvh; min-height: 0; }
+  .body-row, .workbench { min-width: 0; min-height: 0; }
+  .workbench { position: relative; }
+  .splitter { display: none; }
+
+  /* Menu bar: one row that scrolls sideways; its menus open below it. */
+  .menubar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; min-height: 2.6rem; -webkit-overflow-scrolling: touch; }
+  .menubar::-webkit-scrollbar { display: none; }
+  .menubar > * { flex: none; }
+  .brand > span { display: none; }
+  .menubar summary, .menubar > button { min-height: 2.5rem; min-width: 2.5rem; display: inline-flex; align-items: center; }
+  .menu-items { max-width: 88vw; }
+
+  /* Activity bar: a narrow column of 44 px icons. */
+  .activitybar { width: 3rem; }
+  .activity-btn { width: 3rem; height: 3rem; }
+
+  /* Sidebars and bottom panel: sheets over the editor. */
+  #primary { position: fixed; top: 2.6rem; bottom: 1.8rem; left: 3rem; width: min(84vw, 20rem); z-index: 60;
+    background: var(--bg); box-shadow: 0 0 18px rgba(0, 0, 0, 0.45); overflow: auto; }
+  #board-pane { position: fixed; top: 2.6rem; bottom: 1.8rem; right: 0; width: min(84vw, 20rem); z-index: 60;
+    background: var(--bg); box-shadow: 0 0 18px rgba(0, 0, 0, 0.45); overflow: auto; }
+  #panel { position: fixed; left: 0; right: 0; bottom: 1.8rem; height: min(52vh, 26rem); z-index: 55;
+    background: var(--bg); border-top: 1px solid var(--border); box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.35); }
+  .scrim { position: fixed; inset: 0; z-index: 58; background: rgba(0, 0, 0, 0.35); }
+  .ide.sheet-open .scrim { display: block; }
+
+  /* The editor and its tabs: touch-sized. */
+  .main { min-width: 0; min-height: 0; }
+  .main-body { min-height: 0; }
+  #editor { min-width: 0; }
+  #editor .cm-editor { font-size: 16px; }
+  .minimap, .main.no-doc .minimap { display: none !important; }
+  .ide .main-body.minimap-on #editor { margin-right: 0; }
+  .doc-tab { min-height: 2.5rem; padding: 0.5rem 0.8rem; }
+  .doc-tab .close { min-width: 2rem; min-height: 2rem; font-size: 1.1rem; }
+  .tabbar-end button { min-width: 2.5rem; min-height: 2.5rem; }
+  .findbar { flex-wrap: wrap; }
+  .findbar input, .findbar button { min-height: 2.5rem; }
+
+  /* The status bar: one scrolling line. */
+  .statusbar { overflow-x: auto; white-space: nowrap; font-size: 0.75rem; scrollbar-width: none; }
+  .statusbar::-webkit-scrollbar { display: none; }
+  .statusbar > * { flex: none; }
+
+  /* Explorer and bottom panel rows: touch-sized. */
+  #file-list .tree-row { min-height: 2.4rem; }
+  .explorer-toolbar button, .icon-btn { min-width: 2.5rem; min-height: 2.5rem; }
+  .bottom-panel .region-tab { min-height: 2.5rem; }
+
+  /* Overlays cover the screen's width, not the desktop's. */
+  .notifications { left: 0.6rem; right: 0.6rem; bottom: 2.4rem; align-items: stretch; }
+  .palette-box { width: 92vw; }
+  .dialog-box, .dialog { max-width: 92vw; }
 }
 
 /* Hidden by the Mwonekano menu. */

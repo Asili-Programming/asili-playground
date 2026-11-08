@@ -166,6 +166,13 @@ export function renderShell(root, { t, embed = false }) {
   workbench.append(regionNode("secondary", t));
   bodyRow.append(workbench);
   root.append(bodyRow);
+  // On a phone the sidebars and the bottom panel are sheets: a tap on the scrim closes them all.
+  const scrim = el("div", { class: "scrim", id: "scrim", "aria-hidden": "true" });
+  scrim.addEventListener("click", () => {
+    for (const region of REGIONS) if (hasToggle(region)) setToggle(region, false);
+    else setRegionVisible(region, false);
+  });
+  root.append(scrim);
 
   // Status bar.
   const statusbar = el("footer", { class: "statusbar" });
@@ -548,8 +555,11 @@ export const showPanel = (id) => showView(id);
 
 // Show or hide a whole region (a sidebar, the bottom panel) by its id, at run time.
 export function setRegionVisible(region, visible) {
-  document.querySelector(".ide")?.classList.toggle(`hide-${region}`, !visible);
+  const ide = document.querySelector(".ide");
+  ide?.classList.toggle(`hide-${region}`, !visible);
   if (regionMachines[region]) syncRegion(region);
+  // A sheet (phone layout) is open while any of the three regions is shown; the scrim follows it.
+  ide?.classList.toggle("sheet-open", REGIONS.some((r) => regionVisible(r)));
 }
 
 export function regionVisible(region) {
