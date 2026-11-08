@@ -1,7 +1,7 @@
 {
-  "name": "Asili Playground",
+  "name": "Asili IDE",
   "short_name": "Asili",
-  "description": "Uwanja wa kuchezea wa Asili: endesha programu za Asili kwenye kivinjari chako bila kusakinisha chochote.",
+  "description": "IDE ya Asili: andika na uendeshe programu za Asili kwenye kivinjari chako bila kusakinisha chochote.",
   "lang": "sw",
   "start_url": "./",
   "scope": "./",

@@ -1,4 +1,4 @@
-# Asili Playground
+# Asili IDE
 
 A small browser-based playground that runs Asili source entirely client-side, using the
 `asili-wasm` (`wasm-browser` feature) build of [driver/wasm](https://github.com/Asili-Programming/Asili/tree/develop/driver/wasm) in
@@ -11,7 +11,7 @@ to a remote server; everything executes in your browser.
 
 ## Hosted
 
-The playground runs on the Asili website at **https://asili-programming.github.io/playground/**.
+The IDE runs on the Asili website at **https://asili-programming.github.io/ide/**.
 The site builds it from this repository and the wasm build of Asili's `main` on every push to the
 site's `main`, on a weekly schedule, and when this repository's `main` changes (the `notify-site`
 job in `.github/workflows/ci.yml` sends the signal). It accepts `?lugha=sw` or `?lugha=en` for the
