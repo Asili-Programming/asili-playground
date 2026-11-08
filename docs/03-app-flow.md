@@ -49,21 +49,149 @@ collapsed by default.
 
 ## States
 
+Every state the page can be in, grouped by what it describes. Each machine has one start state, and
+each transition names its trigger. A trigger is any of: a menu item, a command-palette entry, a key,
+a button, or an event from the engine or the browser. Where a state is shown, the UI says which one
+it is. The machines run side by side: the engine, the workspace, each file, the checks, the views,
+the main area and the overlays.
+
+### Engine
+
 ```mermaid
 stateDiagram-v2
-  [*] --> Loading
-  Loading --> Ready: wasm loaded
-  Loading --> LoadFailed: fails
-  LoadFailed --> Loading: Retry
-  Loading --> Unsupported: no WebAssembly
-  Ready --> Working: Run, Format, Lint or Test
-  Working --> Results: done
-  Working --> Ready: Stop
-  Results --> Ready: edit
+  [*] --> Unsupported: no WebAssembly or Worker
+  [*] --> Loading: page starts
+  Loading --> Ready: engine loaded
+  Loading --> Failed: load error
+  Failed --> Loading: Retry
+  Ready --> Running: Run (button, F5, Ctrl+Enter, Endesha)
+  Running --> Ready: program finished (status Finished)
+  Running --> Ready: program failed (status Error, message in Matokeo)
+  Running --> Loading: Stop (the worker is replaced)
 ```
 
-Typing works in every state except Unsupported. Check-as-you-type runs in Ready and Results, with
-a short pause after the last keystroke.
+| State | What the user sees | Leaves on |
+| --- | --- | --- |
+| Loading | status "Loading…", Run disabled | the engine's ready message, or its load error |
+| Ready | status "Ready", Run enabled | Run |
+| Running | Run hidden, Stop shown, status "Running…" | the program ends (Finished or Error), or Stop |
+| Failed | notice "The engine failed to load" with Retry | Retry |
+| Unsupported | notice; no engine; editing still works | (end state) |
+
+Stop replaces the worker, so the next state is Loading, then Ready. The status says Stopped.
+
+### Workspace
+
+```mermaid
+stateDiagram-v2
+  [*] --> None: first visit, before a sample opens
+  None --> Clean: a sample, a new workspace, or a shared link opens
+  Clean --> Dirty: an open file's text differs from its saved text
+  Dirty --> Clean: Save
+  Clean --> None: the workspace is deleted (its files close)
+  Dirty --> None: deleted, unsaved changes discarded
+  Dirty --> Clean: switching asks: Save, then open
+  Dirty --> Clean: switching asks: Don't save, then open
+  Dirty --> Dirty: switching asks: Cancel (stays open)
+```
+
+- **None** shows the Explorer's empty state (New workspace, Open workspace, Open sample), and the main
+  area's empty state when no file is open.
+- **Clean** and **Dirty** are the same workspace; Dirty only adds the unsaved-change mark on its tabs
+  and in the file list.
+- **Switching** from a Dirty workspace always asks first. The dialog's buttons are Save, Don't save and
+  Cancel.
+
+### Open files (one per tab)
+
+```mermaid
+stateDiagram-v2
+  [*] --> Clean: opened
+  Clean --> Modified: edited
+  Modified --> Clean: saved (Ctrl+S, Save)
+  Modified --> Closing: close (×, Alt+W, the tab menu)
+  Closing --> Closed: close again within 4 s (the unsaved change is dropped)
+  Closing --> Modified: 4 s pass, or Cancel
+  Clean --> Closed: close
+  Closed --> [*]
+```
+
+- Exactly one file is **Active**: its text is the editor's. Switching tabs keeps each file's undo
+  history and cursor.
+- Closing the last open file moves the main area to its **empty state**.
+
+### Checks (diagnostics)
+
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Checking: an edit, 400 ms after the last keystroke (engine Ready)
+  Checking --> Checked: the engine answers (problems and marks shown)
+  Checked --> Checking: another edit
+  Idle --> Idle: a JSON file (the workspace file) is never checked as Asili
+```
+
+Every file of the workspace is checked, not only the one in the editor: the Problems panel lists them
+all. A file that is a module reports "no main function" only if it is `kuu.as`.
+
+### Lint and format
+
+- **Lint file** runs the linter once: state **Linted** holds its findings until the next lint. An edit
+  does not clear them; the findings are stale until the file is linted again. (A stale mark is not yet
+  shown as stale; this is a known gap.)
+- **Format document** replaces the text with the formatted text as one edit (Undo restores it). If the
+  text is already formatted, the page says so and changes nothing.
+
+### Explorer
+
+```mermaid
+stateDiagram-v2
+  [*] --> NoWorkspace
+  NoWorkspace --> Tree: a workspace opens
+  Tree --> NoWorkspace: the workspace is deleted or closed
+```
+
+- **NoWorkspace**: the empty state. The toolbar's New file, New folder and Collapse are off.
+- **Tree**: the workspace root, folders (Expanded or Collapsed; remembered per workspace) and files.
+- A file or folder can also be **Renaming** (its name is an input) or **Confirming delete** (its menu
+  item asks again). Escape or a click away ends Renaming; the second click ends Confirming.
+
+### Main area
+
+- **Editor**: the active file is shown and the header lists the open files.
+- **Empty**: no file is open. The editor is hidden; the page offers New workspace, Open sample and Open
+  recent. This state is kept across a reload.
+
+### Views and regions
+
+- Each region (left sidebar, right sidebar, bottom panel) is **Shown** or **Hidden**, through its toggle
+  (see Toggles). A region with no views is hidden whatever its toggle says.
+- A view is in one region, and is **Selected** or not within it. Dragging a view moves it to another
+  region; the layout is kept across a reload.
+
+### Overlays
+
+Each overlay is **Closed** or **Open**; only one is open at a time, and opening one closes the others.
+
+| Overlay | Opens from | Closes on |
+| --- | --- | --- |
+| Command palette | Ctrl+Shift+P, F1, the View menu | Escape, a choice, a click outside |
+| Quick open | Ctrl+P | Escape, a choice |
+| Open lists (sample, workspace, recent, view) | the File and View menus | Escape, a choice |
+| Find bar | Ctrl+F, Ctrl+H, Ctrl+G | Escape, × |
+| Menu | a click on a menu name | a click outside, Escape; hovering another menu opens it |
+| Dialog (save before switching, delete) | an action that needs it | one of its buttons |
+
+### Notifications
+
+Each notification and the undo notice are **Shown** for a time, then **Gone**; see "Notifications" below.
+
+### Saved state
+
+- The session (open files, unsaved text, the active file) is saved as the user works, and restored on
+  load.
+- The workspaces, the toggles and the layout are saved; the menus and overlays are not.
+- Embed mode (`?embed=1`) forces the sidebars off for that visit only.
 
 ## Flow 1: run and fix
 
@@ -184,31 +312,6 @@ documented views and layout model). It is built from the registries, not written
 
 Separators divide the groups, as in VS Code. A view that cannot show (its region is hidden) still
 opens: showing it makes its region visible.
-
-## Page states
-
-The page has four state machines that run side by side. Each one has a start state, and every
-transition named here is reachable from the menus, the palette or a key.
-
-**Engine:** `Loading` → `Ready` (or `Failed`, which offers Retry). `Ready` → `Running` (Run, F5 or
-Ctrl+Enter) → `Ready` when the program finishes, or `Stopped` (Stop), which also returns to `Ready`
-with a new worker. `Unsupported` is a start state for browsers without WebAssembly.
-
-**Workspace:** `None` (only at first use, before a sample is opened) → `Clean` (every file equals its
-saved text) ⇄ `Dirty` (an open file differs from its saved text). Save → `Clean`. Opening another
-workspace from `Dirty` asks first: Save → open, Don't save → open, Cancel → stay.
-
-**Document:** each open file is `Clean` or `Modified`; a closed `Modified` file asks once (× or Alt+W,
-then again to discard). Every tab can be closed. When the last tab closes, the main area shows its
-empty state: the editor is hidden and the page offers New workspace, Open sample and Open recent.
-The empty state is kept across a reload, and Open sample or Open recent returns to the editor.
-
-**Explorer empty state:** with no workspace open, the Explorer says so and offers New workspace, Open
-workspace and Open sample. Its file commands (New file, New folder, Collapse) are off until a
-workspace is open.
-
-**Engine marks:** `Idle` → `Checking` (after an edit, after 400 ms) → `Checked` (its problems are
-shown). An edit sends the file back to `Checking`.
 
 ## Toggles
 
