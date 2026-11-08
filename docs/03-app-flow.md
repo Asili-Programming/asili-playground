@@ -153,6 +153,11 @@ A view can be dragged to another region, or to another place in its own region's
 
 Each region's tabs use the same tab style, so a region is only a place to show views.
 
+The side bars show their tabs as a column of icons, on the outer edge of the bar (the left sidebar's
+on the left, the right sidebar's on the right). The bottom panel shows its tabs as text across its
+top. Each view has an icon and a name: the icon is what the side bar shows, the name is the tooltip
+and the bottom panel's label.
+
 ## Edge cases
 
 | Situation | What the user sees |
