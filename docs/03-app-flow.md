@@ -139,6 +139,20 @@ finds the same keys and places.
 
 Keys are not taken while the focus is in a text field, except the palette and Ctrl+S.
 
+## Flow 8: move the views
+
+Every view is a tab: Explorer (the file list), Workspace (its controls), Board, Output and Problems.
+A view can be dragged to another region, or to another place in its own region's tab strip:
+
+- **Primary sidebar**, **secondary sidebar** and **bottom panel** each have a tab strip. Drop a tab on
+  a strip to put it there; drop it on a tab to put it in front of that tab; drop it on a region's
+  body to add it at the end.
+- **Editor area**: dropping a view on the editor moves it to the bottom panel.
+- The place of every view is kept in the browser, so the layout comes back after a reload.
+- A view moves with its content: the output text, the board's pins and the file list stay as they are.
+
+Each region's tabs use the same tab style, so a region is only a place to show views.
+
 ## Edge cases
 
 | Situation | What the user sees |
