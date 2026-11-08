@@ -80,6 +80,8 @@ const STRINGS = {
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
     newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha",
+    openRecent: "Fungua hivi karibuni", saveBefore: "Hifadhi mabadiliko ya", beforeOpening: "kabla ya kufungua",
+    dontSave: "Usihifadhi", cancel: "Ghairi",
     menuTools: "Zana", lintFile: "Kagua faili", formatted: "Msimbo umepangwa", formatUnchanged: "Msimbo uko sawa tayari",
     lintClean: "Hakuna makosa ya kukagua", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
@@ -133,6 +135,8 @@ const STRINGS = {
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
     newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language",
+    openRecent: "Open recent", saveBefore: "Save changes to", beforeOpening: "before opening",
+    dontSave: "Don't save", cancel: "Cancel",
     menuTools: "Tools", lintFile: "Lint file", formatted: "Code formatted", formatUnchanged: "Code is already formatted",
     lintClean: "No lint findings", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
@@ -165,6 +169,7 @@ registerCommand({ id: "palette.open", title: "Command palette", key: ["Ctrl+Shif
 registerCommand({ id: "project.new", title: "New workspace", run: () => newProjectFromInput() });
 registerCommand({ id: "file.openSample", title: "Open sample", run: () => openSampleList() });
 registerCommand({ id: "file.openWorkspace", title: "Open workspace", run: () => openWorkspaceList() });
+registerCommand({ id: "file.openRecent", title: "Open recent", run: () => openRecentList() });
 registerCommand({ id: "project.save", title: "Save project", key: "Ctrl+S", inEditor: true, inInput: true,
   run: () => (activeDoc?.projectId ? saveActiveProject() : saveSampleAsProject()), enabled: () => !!activeDoc });
 registerCommand({ id: "project.saveAsProject", title: "Save sample as workspace", run: () => saveSampleAsProject(),
@@ -221,6 +226,7 @@ addMenu({
     { id: "menu-project-new", label: "newProject", command: "project.new" },
     { id: "menu-open-sample", label: "openSample", command: "file.openSample" },
     { id: "menu-open-workspace", label: "openWorkspace", command: "file.openWorkspace" },
+    { id: "menu-open-recent", label: "openRecent", command: "file.openRecent" },
     { id: "menu-project-save", label: "saveProject", command: "project.save" },
     { id: "menu-project-save-as", label: "saveAsProject", command: "project.saveAsProject" },
     { id: "menu-project-import", label: "importProject", command: "project.import" },
@@ -982,7 +988,9 @@ function closeDoc(d, { force = false } = {}) {
 }
 
 function openProjectFile(p, file) {
-  return openDoc(`p:${p.id}:${file}`, file, p.files[file], { projectId: p.id, file });
+  return openDoc(`p:${p.id}:${file}`, file, p.files[file], {
+    projectId: p.id, file, inputs: file === ENTRY ? (p.inputs ?? []) : [],
+  });
 }
 
 // File > Open sample: every sample, by its label.
@@ -1003,16 +1011,109 @@ function openWorkspaceList() {
     placeholder: T.openWorkspace,
     items: projects.map((p) => ({
       label: p.name,
-      detail: `${Object.keys(p.files).length} ${T.stFiles ?? "files"}`,
-      run: () => openProjectFile(p, ENTRY),
+      detail: `${Object.keys(p.files).filter((f) => !isConfig(f)).length} ${T.stFiles ?? "files"}`,
+      run: () => askToSaveCurrent(p.name, () => switchWorkspace(p)),
     })),
   });
 }
 
+// File > Open Recent: the workspaces, the most recently opened first.
+function openRecentList() {
+  openList({
+    placeholder: T.openRecent,
+    items: [...projects].sort((a, b) => (b.opened ?? 0) - (a.opened ?? 0)).map((p) => ({
+      label: p.name,
+      detail: p.opened ? new Date(p.opened).toLocaleString() : "",
+      run: () => askToSaveCurrent(p.name, () => switchWorkspace(p)),
+    })),
+  });
+}
+
+// A sample opens as a workspace of its own: its kuu.as is the sample's source, and the workspace is
+// kept in the browser at once (so it is listed under Open Recent).
 async function openSample(file) {
   const sample = samplesById.get(file);
   const res = await fetch(`samples/${file}`);
-  return openDoc(`s:${file}`, file, await res.text(), { inputs: sample?.inputs ?? [] });
+  const text = await res.text();
+  const label = (lang === "en" && sample?.label_en) ? sample.label_en : (sample?.label ?? file);
+  askToSaveCurrent(label, () => {
+    const p = projectFromSample(uniqueName(label, projects.map((x) => x.name)), text);
+    p.id = newId();
+    p.origin = `sample:${file}`;
+    p.inputs = sample?.inputs ?? [];
+    p.opened = Date.now();
+    projects.push(p);
+    activeProjectId = p.id;
+    persistProjects();
+    openProjectFile(p, ENTRY);
+    renderProjectSection();
+    renderTabs();
+  });
+}
+
+// Make `p` the open workspace, and record when it was opened (Open Recent).
+function switchWorkspace(p) {
+  p.opened = Date.now();
+  activeProjectId = p.id;
+  persistProjects();
+  openProjectFile(p, ENTRY);
+  renderProjectSection();
+  renderTabs();
+}
+
+// Before the open workspace is replaced: when it has unsaved changes, ask to save them.
+function workspaceDirty(p) {
+  return docs.some((d) => d.projectId === p.id && d.text !== p.files[d.file]);
+}
+
+function askToSaveCurrent(nextName, next) {
+  const p = activeProject();
+  if (!p || !workspaceDirty(p)) {
+    next();
+    return;
+  }
+  showDialog(`${T.saveBefore} "${p.name}" ${T.beforeOpening} "${nextName}"?`, [
+    { label: T.saveProject, run: () => { saveActiveProject(); next(); } },
+    { label: T.dontSave, run: () => { discardUnsaved(p); next(); } },
+    { label: T.cancel, run: () => {} },
+  ]);
+}
+
+// Drop the open files of a workspace whose changes are not kept.
+function discardUnsaved(p) {
+  for (let i = docs.length - 1; i >= 0; i--) if (docs[i].projectId === p.id) docs.splice(i, 1);
+  activeDoc = null;
+  editor.setState(state0());
+  renderTabs();
+}
+
+// A small dialog with its buttons (no browser dialogs).
+function showDialog(message, buttons) {
+  document.getElementById("dialog")?.remove();
+  const box = document.createElement("div");
+  box.id = "dialog";
+  box.className = "dialog-overlay";
+  box.setAttribute("role", "alertdialog");
+  const text = document.createElement("p");
+  text.textContent = message;
+  const row = document.createElement("div");
+  row.className = "dialog-buttons";
+  for (const b of buttons) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = b.label;
+    button.addEventListener("click", () => {
+      box.remove();
+      b.run();
+    });
+    row.append(button);
+  }
+  const inner = document.createElement("div");
+  inner.className = "dialog";
+  inner.append(text, row);
+  box.append(inner);
+  document.body.append(box);
+  row.querySelector("button")?.focus();
 }
 
 // The text a project file has now: the open document's text, or the saved text.

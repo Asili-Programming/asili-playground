@@ -490,3 +490,9 @@ body.theme-light #file-list .ico-folder { color: #b7791f; }
 .toast-close { border: 0; background: transparent; color: var(--muted); padding: 0 0.2rem; line-height: 1; }
 .toast-close:hover { color: var(--text); }
 .statusbar .bell { display: inline-flex; align-items: center; gap: 0.25rem; }
+
+/* ---- Dialog: asks before a change is lost (no browser dialogs) ------------------------------ */
+.dialog-overlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); }
+.dialog { width: min(28rem, 92vw); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+.dialog p { margin: 0 0 1rem; line-height: 1.4; }
+.dialog-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }
