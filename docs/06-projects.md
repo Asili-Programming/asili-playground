@@ -10,10 +10,11 @@ stay read-only; a sample can be saved as a project to edit it.
 ```json
 {
   "schema": "asili-project",
-  "version": 1,
+  "version": 2,
   "name": "Hesabu",
   "entry": "kuu",
-  "files": { "kuu.as": "leta msaidizi\n...", "msaidizi.as": "...\n" },
+  "folders": ["lib"],
+  "files": { "kuu.as": "leta msaidizi\n...", "lib/msaidizi.as": "...\n" },
   "created": "2026-11-08T12:00:00Z",
   "updated": "2026-11-08T12:30:00Z"
 }
@@ -25,6 +26,25 @@ stay read-only; a sample can be saved as a project to edit it.
 - **Entry** is the file that holds `kazi kuu`. It is `kuu` for every project; a project always has
   `kuu.as`, and it cannot be deleted.
 - **Size limits:** 256 KB per file, 2 MB per project, 32 files. An import above a limit is refused.
+
+## Folders
+
+A workspace is a directory tree, as on an operating system:
+
+- A **file** has a path: `kuu.as` at the root, `lib/msaidizi.as` in the folder `lib`. Folders are
+  nested to any depth. A path's segments are identifiers (letters, digits and `_`), and the last
+  segment ends in `.as`.
+- A **folder** is a path too. A folder that holds no file is kept in `folders`, so an empty folder
+  survives a save and an export.
+- **Module name.** `leta <module>` names a file by its base name without `.as`: `lib/msaidizi.as` is
+  the module `msaidizi`. So base names must be unique across the whole workspace: a second
+  `msaidizi.as` in another folder is refused, with a message that names the folder it clashes with.
+- **Entry.** `kuu.as` stays at the root and cannot be moved, renamed or deleted.
+- **Operations:** create a file or folder inside a folder; rename a file or folder; move a file to
+  another folder (drag and drop, or Cut and Paste); delete a file, or a folder with everything in it
+  (the entry excepted). Deleting a folder that holds `kuu.as` is refused.
+- **Format.** Version 2 has `files` (keyed by path) and `folders` (a list of paths). Version 1 (flat
+  `files`) is still imported; its names are paths at the root.
 
 ## Storage
 
