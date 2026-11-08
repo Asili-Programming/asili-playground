@@ -1733,6 +1733,7 @@ function renderTreeLevel(p, node, path, depth, list) {
       e.preventDefault();
       showFolderMenu(e.clientX, e.clientY, p, folder);
     });
+    attachLongPress(li, (x, y) => showFolderMenu(x, y, p, folder));
     attachTreeDrop(li, p, folder);
     list.append(li);
     if (open) renderTreeLevel(p, node.folders.get(name), folder, depth + 1, list);
@@ -1770,6 +1771,7 @@ function fileRow(p, file, depth) {
     e.preventDefault();
     showFileMenu(e.clientX, e.clientY, p, file, li);
   });
+  attachLongPress(li, (x, y) => showFileMenu(x, y, p, file, li));
   li.addEventListener("dragstart", (e) => {
     e.dataTransfer.setData("application/x-asili-file", file);
     e.dataTransfer.effectAllowed = "move";
@@ -1812,8 +1814,14 @@ function moveFileTo(p, file, folder) {
 }
 
 // Folder operations: New file, New folder, Rename, Delete (the second click confirms).
-function showFolderMenu(x, y, p, folder) {
+// The actions of a tree row, as one menu. On a desktop it is a floating menu; on a phone it is a bottom
+// sheet (a long press on a row opens it too). An action with `confirm` asks again before it runs.
+function treeMenu(x, y, title, items) {
   fileMenu?.remove();
+  if (phoneScreen) {
+    openActionSheet(title, [{ items: items.map((item) => ({ label: item.label, run: () => (item.confirm ? confirmSheet(item) : item.run()) })) }]);
+    return;
+  }
   const menu = document.createElement("div");
   menu.className = "file-menu";
   menu.style.left = `${x}px`;
@@ -1834,10 +1842,7 @@ function showFolderMenu(x, y, p, folder) {
     });
     menu.append(b);
   };
-  add(T.newFile, () => newItemIn(p, folder, "file"));
-  add(T.newFolder, () => newItemIn(p, folder, "folder"));
-  add(T.rename, () => startFolderRename(p, folder));
-  add(T.delete, () => removeFolder(p, folder), T.confirmDelete);
+  for (const item of items) add(item.label, item.run, item.confirm);
   document.body.append(menu);
   fileMenu = menu;
   const dismiss = (e) => {
@@ -1848,6 +1853,54 @@ function showFolderMenu(x, y, p, folder) {
     }
   };
   document.addEventListener("pointerdown", dismiss);
+}
+
+// A confirmation sheet: the action's own name, then the button that does it.
+function confirmSheet(item) {
+  openActionSheet(item.label, [{ items: [{ label: item.confirm, run: item.run }] }]);
+}
+
+// Move a file: a sheet of the folders (the workspace's root first).
+function chooseFolder(p, file) {
+  const folders = ["", ...foldersOf(p)];
+  openActionSheet(T.moveTo, [{ items: folders.map((f) => ({ label: f || p.name, run: () => moveFileTo(p, file, f) })) }]);
+}
+
+// A long press (touch) opens a row's menu, as a right-click does on a desktop. A press that moves is
+// a scroll, not a long press; the click after a long press does nothing.
+function attachLongPress(li, open) {
+  let timer = null;
+  let start = null;
+  let fired = false;
+  li.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    fired = false;
+    start = { x: e.clientX, y: e.clientY };
+    timer = setTimeout(() => { fired = true; open(start.x, start.y); }, 500);
+  });
+  const cancel = () => clearTimeout(timer);
+  // The click after a long press is dropped; the flag is cleared soon after, so no later tap is.
+  li.addEventListener("pointerup", () => {
+    cancel();
+    if (fired) setTimeout(() => { fired = false; }, 400);
+  });
+  li.addEventListener("pointercancel", cancel);
+  li.addEventListener("pointerleave", cancel);
+  li.addEventListener("pointermove", (e) => {
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
+  });
+  li.addEventListener("click", (e) => {
+    if (fired) { e.stopImmediatePropagation(); e.preventDefault(); fired = false; }
+  }, true);
+}
+
+function showFolderMenu(x, y, p, folder) {
+  treeMenu(x, y, folder.split("/").pop(), [
+    { label: T.newFile, run: () => newItemIn(p, folder, "file") },
+    { label: T.newFolder, run: () => newItemIn(p, folder, "folder") },
+    { label: T.rename, run: () => startFolderRename(p, folder) },
+    { label: T.delete, run: () => removeFolder(p, folder), confirm: T.confirmDelete },
+  ]);
 }
 
 // A new file or folder inside `folder`, named by the first free name, and opened for renaming.
@@ -1968,6 +2021,7 @@ function workspaceRoot(p) {
     e.preventDefault();
     showRootMenu(e.clientX, e.clientY, p, li);
   });
+  attachLongPress(li, (x, y) => showRootMenu(x, y, p, li));
   return li;
 }
 
@@ -2002,42 +2056,13 @@ function startRootRename(p, li) {
 }
 
 function showRootMenu(x, y, p, li) {
-  fileMenu?.remove();
-  const menu = document.createElement("div");
-  menu.className = "file-menu";
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-  const add = (label, run, armedLabel) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = label;
-    b.addEventListener("click", () => {
-      if (armedLabel && b.dataset.armed !== "yes") {
-        b.dataset.armed = "yes";
-        b.textContent = armedLabel;
-        return;
-      }
-      menu.remove();
-      fileMenu = null;
-      run();
-    });
-    menu.append(b);
-  };
-  add(T.newFile, () => newItemIn(p, "", "file"));
-  add(T.newFolder, () => newItemIn(p, "", "folder"));
-  add(T.closeWorkspace, () => closeWorkspace());
-  add(T.projectRename, () => startRootRename(p, li));
-  add(T.projectDelete, () => deleteActiveProject());
-  document.body.append(menu);
-  fileMenu = menu;
-  const dismiss = (e) => {
-    if (!menu.contains(e.target)) {
-      menu.remove();
-      fileMenu = null;
-      document.removeEventListener("pointerdown", dismiss);
-    }
-  };
-  document.addEventListener("pointerdown", dismiss);
+  treeMenu(x, y, p.name, [
+    { label: T.newFile, run: () => newItemIn(p, "", "file") },
+    { label: T.newFolder, run: () => newItemIn(p, "", "folder") },
+    { label: T.closeWorkspace, run: () => closeWorkspace() },
+    { label: T.projectRename, run: () => startRootRename(p, li) },
+    { label: T.projectDelete, run: () => deleteActiveProject() },
+  ]);
 }
 // The derived states (workspace, Explorer, main area), read from the page's data by states.js.
 const derived = {};
@@ -2452,40 +2477,12 @@ function duplicateFile(p, file) {
 
 let fileMenu = null;
 function showFileMenu(x, y, p, file, li) {
-  fileMenu?.remove();
-  const menu = document.createElement("div");
-  menu.className = "file-menu";
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-  const add = (label, run, armedLabel) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = label;
-    b.addEventListener("click", () => {
-      if (armedLabel && b.dataset.armed !== "yes") {
-        b.dataset.armed = "yes";
-        b.textContent = armedLabel;
-        return;
-      }
-      menu.remove();
-      fileMenu = null;
-      run();
-    });
-    menu.append(b);
-  };
-  add(T.rename, () => startRename(p, file, li));
-  add(T.duplicate, () => duplicateFile(p, file));
-  if (file !== ENTRY && !isConfig(file)) add(T.delete, () => removeFile(p, file), T.confirmDelete);
-  document.body.append(menu);
-  fileMenu = menu;
-  const dismiss = (e) => {
-    if (!menu.contains(e.target)) {
-      menu.remove();
-      fileMenu = null;
-      document.removeEventListener("pointerdown", dismiss);
-    }
-  };
-  document.addEventListener("pointerdown", dismiss);
+  const items = [{ label: T.rename, run: () => startRename(p, file, li) }, { label: T.duplicate, run: () => duplicateFile(p, file) }];
+  if (file !== ENTRY && !isConfig(file)) {
+    items.push({ label: T.moveTo, run: () => chooseFolder(p, file) });
+    items.push({ label: T.delete, run: () => removeFile(p, file), confirm: T.confirmDelete });
+  }
+  treeMenu(x, y, file, items);
 }
 
 function deleteProjectFile(p, file, button) {

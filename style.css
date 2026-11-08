@@ -384,6 +384,13 @@ body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8b
   #primary { top: 3rem; left: 0; right: 0; width: auto; }
   #board-pane { top: 3rem; left: 0; right: 0; width: auto; }
   #panel { top: 3rem; height: auto; }
+  /* Board and Problems, full screen: rows a finger can hit. */
+  .problems { padding: 0.6rem 1rem 0.6rem 2.2rem; font-size: 0.95rem; }
+  .problems li { min-height: 2.75rem; display: flex; align-items: center; }
+  .board-body { padding: 1rem; }
+  .board-pins li { min-height: 3rem; display: flex; align-items: center; }
+  .board-events li { min-height: 2.5rem; display: flex; align-items: center; }
+  .view-pane { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 }
 
 /* Hidden by the Mwonekano menu. */
