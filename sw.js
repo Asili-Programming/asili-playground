@@ -6,7 +6,7 @@
 // so the first offline visit works too. Every file listed there must be served by the site (see
 // scripts/copy_playground.sh in the website repository).
 
-const CACHE = "asili-playground-v1";
+const CACHE = "asili-playground-v2";
 const PRECACHE = [
   "./",
   "index.html",
@@ -17,6 +17,10 @@ const PRECACHE = [
   "settings.js",
   "states.js",
   "project.js",
+  "icons.js",
+  "icons/material/theme.json",
+  "product-icons/material-icons.woff",
+  "product-icons/product-icons.json",
   "session.js",
   "share.js",
   "worker.js",
