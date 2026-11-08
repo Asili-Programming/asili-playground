@@ -702,9 +702,11 @@ function onWorkerMessage(e) {
     handleEvent(m.json);
   } else if (m.type === "diag" && m.key) {
     try {
-      projectProblems.set(m.key, JSON.parse(m.json));
+      // Only the entry file has a main function; a module's "no kuu" is not a problem.
+      const items = JSON.parse(m.json).filter((d) => !(d.code === "SEM000" && !m.key.endsWith(`:${ENTRY}`)));
+      projectProblems.set(m.key, items);
       const d = docs.find((x) => x.key === m.key);
-      if (d) d.error = JSON.parse(m.json).length > 0;
+      if (d) d.error = items.length > 0;
       renderAllProblems();
     } catch {
       // A malformed result leaves that file's previous problems in place.
@@ -809,6 +811,8 @@ function activeProject() {
   return projectById(activeProjectId);
 }
 let projects = loadProjects();
+// A workspace saved before the configuration file existed gets one now.
+for (const p of projects) syncConfig(p);
 let activeProjectId = projects[0]?.id ?? null;
 
 function isDirty(d) {
