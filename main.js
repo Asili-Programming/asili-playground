@@ -34,7 +34,7 @@ const lang = LANGS.includes(requested) ? requested : "sw";
 
 const STRINGS = {
   sw: {
-    title: "Asili — Uwanja wa Kuchezea",
+    title: "Asili — IDE",
     run: "▶ Endesha", stop: "■ Simamisha", clear: "Futa", output: "Matokeo", editor: "Msimbo wa Asili",
     clearTitle: "Futa matokeo", sampleTitle: "Chagua mfano",
     loading: "Inapakia…", ready: "Tayari", running: "Inaendesha…", done: "Imekamilika",
@@ -51,7 +51,7 @@ const STRINGS = {
     toggleSecondary: "Upau wa kulia (Bodi pepe)", togglePanel: "Paneli ya chini", wiki: "Wiki ya Asili",
     explorer: "Faili", samples: "Mifano", openFiles: "Mafaili yaliyo wazi", editor: "Msimbo",
     panel: "Paneli ya chini", problems: "Matatizo", noProblems: "Hakuna makosa",
-    subtitle: "Uwanja wa Kuchezea",
+    subtitle: "IDE",
     projectSection: "Nafasi ya kazi", filesSection: "Faili za mradi", projectName: "Jina la nafasi ya kazi",
     newProject: "Nafasi mpya", exportProject: "Hamisha nje", importProject: "Ingiza", saveProject: "Hifadhi",
     saveAsProject: "Hifadhi mfano kama nafasi ya kazi", openSample: "Fungua mfano", openWorkspace: "Fungua nafasi ya kazi", newFile: "Unda faili", fileName: "jina la faili",
@@ -99,7 +99,7 @@ const STRINGS = {
     lintClean: "Hakuna makosa ya kukagua", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
-    title: "Asili — Playground",
+    title: "Asili — IDE",
     run: "▶ Run", stop: "■ Stop", clear: "Clear", output: "Output", editor: "Asili source code",
     clearTitle: "Clear output", sampleTitle: "Choose a sample",
     loading: "Loading…", ready: "Ready", running: "Running…", done: "Finished",
@@ -116,7 +116,7 @@ const STRINGS = {
     toggleSecondary: "Right sidebar (Virtual board)", togglePanel: "Bottom panel", wiki: "Asili wiki",
     explorer: "Explorer", samples: "Samples", openFiles: "Open files", editor: "Code",
     panel: "Bottom panel", problems: "Problems", noProblems: "No problems",
-    subtitle: "Playground",
+    subtitle: "IDE",
     projectSection: "Workspace", filesSection: "Project files", projectName: "Workspace name",
     newProject: "New workspace", exportProject: "Export workspace", importProject: "Import workspace", saveProject: "Save",
     saveAsProject: "Save sample as workspace", openSample: "Open sample", openWorkspace: "Open workspace", newFile: "Create file", fileName: "file name",
