@@ -54,6 +54,7 @@ const STRINGS = {
     savedNote: "Mradi umehifadhiwa", importedNote: "Mradi umeingizwa", exportedNote: "Mradi umehamishwa",
     storageOff: "Hifadhi haipatikani kwenye kivinjari hiki: mradi hautabaki", importFailed: "Kuingiza kumeshindikana",
     dirtyWarn: "Mabadiliko hayajahifadhiwa", menuProject: "Mradi", fileNew: "Mradi mpya",
+    closeAgain: "Mabadiliko hayajahifadhiwa: bonyeza × tena kufunga bila kuhifadhi",
     activityBar: "Upau wa vitendo", explorer: "Faili", board: "Bodi pepe", problems: "Matatizo",
     menuPalette: "Amri",
   },
@@ -84,6 +85,7 @@ const STRINGS = {
     savedNote: "Project saved", importedNote: "Project imported", exportedNote: "Project exported",
     storageOff: "Storage is not available in this browser: the project will not be kept", importFailed: "Import failed",
     dirtyWarn: "Unsaved changes", menuProject: "Project", fileNew: "New project",
+    closeAgain: "Unsaved changes: click × again to close without saving",
     activityBar: "Activity bar", explorer: "Explorer", board: "Board", problems: "Problems",
     menuPalette: "Commands",
   },
@@ -124,7 +126,7 @@ registerCommand({ id: "project.import", title: "Import project", run: () => docu
 registerCommand({ id: "file.new", title: "New file", key: "Ctrl+N", inEditor: true,
   run: () => { setRegionVisible("primary", true); document.getElementById("file-name")?.focus(); } });
 registerCommand({ id: "file.close", title: "Close tab", key: "Ctrl+W", inEditor: true,
-  run: () => closeDoc(activeDoc), enabled: () => docs.length > 1 });
+  run: () => requestClose(activeDoc), enabled: () => !!activeDoc });
 registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
 registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEditor: true, inInput: true,
   run: () => run(), enabled: () => engineReady && !busy });
@@ -662,6 +664,17 @@ function renderTabs() {
       name.title = T.dirtyWarn;
     }
     tab.append(name);
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "close";
+    close.textContent = "×";
+    close.setAttribute("aria-label", `${T.closeTab}: ${d.name}`);
+    close.title = T.closeTab;
+    close.addEventListener("click", (e) => {
+      e.stopPropagation();
+      requestClose(d);
+    });
+    tab.append(close);
     tab.addEventListener("click", () => activate(d));
     bar.append(tab);
   }
@@ -692,13 +705,31 @@ function activate(d) {
   refreshMenus();
 }
 
+// Close a tab. A modified project file first shows a warning; a second request closes it.
+function requestClose(d) {
+  if (!d) return;
+  if (isDirty(d) && !d.closeArmed) {
+    d.closeArmed = true;
+    note(T.closeAgain, "error");
+    setTimeout(() => { d.closeArmed = false; }, 4000);
+    return;
+  }
+  closeDoc(d);
+}
+
 function closeDoc(d) {
-  if (!d || docs.length < 2) return;
+  if (!d) return;
   const i = docs.indexOf(d);
+  if (i < 0) return;
   docs.splice(i, 1);
   if (d === activeDoc) {
     activeDoc = null;
-    activate(docs[Math.max(0, i - 1)]);
+    if (docs.length) {
+      activate(docs[Math.max(0, i - 1)]);
+    } else {
+      const first = [...samplesById.keys()][0];
+      if (first) openSample(first);
+    }
   } else {
     renderTabs();
   }
