@@ -318,7 +318,12 @@ function createViews(keep, t) {
     const tab = el("button", {
       id: `tab-${view.id}`, role: "tab", class: "panel-tab region-tab", "data-panel": view.id,
       "data-view": view.id, draggable: "true", "aria-controls": `panel-${view.id}`, "aria-selected": "false",
-    }, t(view.title));
+      title: t(view.title), "aria-label": t(view.title),
+    });
+    // The icon shows in the side bars, the name in the bottom panel (see style.css).
+    const icon = el("span", { class: "tab-icon", "aria-hidden": "true" });
+    icon.innerHTML = view.icon ?? "";
+    tab.append(icon, el("span", { class: "tab-text" }, t(view.title)));
     if (view.id === "problems") tab.append(el("span", { id: "problem-count", class: "problem-count" }));
     tab.addEventListener("click", () => showView(view.id));
     tab.addEventListener("dragstart", (e) => {

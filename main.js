@@ -274,9 +274,16 @@ addStatusItem({ id: "lugha-switch", order: 90, optional: true, render(slot, t) {
   slot.append(link);
 } });
 
+// View icons: the side bars show these, as a column (SVG, no text).
+const svgIcon = (body) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+const ICON_FOLDER = svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>');
+const ICON_BOARD = svgIcon('<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>');
+const ICON_OUTPUT = svgIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>');
+const ICON_PROBLEMS = svgIcon('<path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/>');
+
 // The Explorer view: the workspace is a section of it, above the file list (as in VS Code).
 addSidebarSection("primary", {
-  id: "files", title: "explorer", order: 10,
+  id: "files", title: "explorer", order: 10, icon: ICON_FOLDER,
   render(container, t) {
     container.innerHTML = `
       <section class="explorer-section" aria-label="${t("projectSection")}">
@@ -309,7 +316,7 @@ addSidebarSection("primary", {
   },
 });
 addSidebarSection("secondary", {
-  id: "board", title: "board", order: 10, optional: false,
+  id: "board", title: "board", order: 10, optional: false, icon: ICON_BOARD,
   render(container, t) {
     container.innerHTML = `
       <div class="board-body">
@@ -322,7 +329,7 @@ addSidebarSection("secondary", {
 });
 
 addPanel({
-  id: "output", title: "output", order: 10,
+  id: "output", title: "output", order: 10, icon: ICON_OUTPUT,
   render(body) {
     const pre = document.createElement("pre");
     pre.id = "output";
@@ -330,7 +337,7 @@ addPanel({
   },
 });
 addPanel({
-  id: "problems", title: "problems", order: 20,
+  id: "problems", title: "problems", order: 20, icon: ICON_PROBLEMS,
   render(body) {
     const list = document.createElement("ol");
     list.id = "problems";
