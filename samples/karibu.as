@@ -1,3 +1,5 @@
+# sw: Karibu (Fibonacci)
+# en: Welcome (Fibonacci)
 # Karibu Asili! Andika msimbo wako hapa kisha bofya "Endesha" (Run).
 leta matumizi
 
