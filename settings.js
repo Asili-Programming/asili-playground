@@ -36,6 +36,10 @@ export function defineToggle(id, { initial, apply, persist = true }) {
   apply?.(value);
 }
 
+export function hasToggle(id) {
+  return defs.has(id);
+}
+
 export function isOn(id) {
   const d = defs.get(id);
   if (!d) throw new Error(`toggle '${id}' is not defined`);

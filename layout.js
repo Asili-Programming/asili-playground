@@ -7,7 +7,7 @@
 // run time (setRegionVisible, refreshMenus, showPanel).
 
 import { getCommand, isEnabled, runCommand } from "./commands.js";
-import { isOn } from "./settings.js";
+import { isOn, hasToggle, setToggle } from "./settings.js";
 
 let brand = { logo: "", title: "Asili", subtitle: "" };
 
@@ -453,7 +453,9 @@ export function showView(id, { remember = true } = {}) {
   const n = viewNodes.get(id);
   if (!n) return;
   const region = n.region;
-  setRegionVisible(region, true);
+  // Showing a view shows its region through the region's toggle, so the menus stay right.
+  if (hasToggle(region)) setToggle(region, true);
+  else setRegionVisible(region, true);
   for (const tab of document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`)) {
     tab.setAttribute("aria-selected", String(tab === n.tab));
   }
