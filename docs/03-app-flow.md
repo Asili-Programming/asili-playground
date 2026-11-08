@@ -199,7 +199,9 @@ saved text) ⇄ `Dirty` (an open file differs from its saved text). Save → `Cl
 workspace from `Dirty` asks first: Save → open, Don't save → open, Cancel → stay.
 
 **Document:** each open file is `Clean` or `Modified`; a closed `Modified` file asks once (× or Alt+W,
-then again to discard).
+then again to discard). Every tab can be closed. When the last tab closes, the main area shows its
+empty state: the editor is hidden and the page offers New workspace, Open sample and Open recent.
+The empty state is kept across a reload, and Open sample or Open recent returns to the editor.
 
 **Engine marks:** `Idle` → `Checking` (after an edit, after 400 ms) → `Checked` (its problems are
 shown). An edit sends the file back to `Checking`.
