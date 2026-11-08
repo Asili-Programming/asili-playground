@@ -215,7 +215,8 @@ body { margin: 0; overflow: hidden; }
 }
 .menu-items button:hover:not(:disabled), .menu-items a:hover { background: var(--hover); }
 
-.workbench { flex: 1; min-height: 0; display: flex; }
+/* min-width: 0 on each flex container: a wide tab row must not widen the regions around it. */
+.workbench { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .sidebar {
   flex: 0 0 var(--primary-w, 240px); min-width: 0; display: flex; flex-direction: column; overflow: auto;
   background: var(--panel); border-right: 1px solid var(--border);
@@ -238,7 +239,7 @@ body { margin: 0; overflow: hidden; }
   display: flex; flex: none; overflow-x: auto; background: var(--panel); border-bottom: 1px solid var(--border);
 }
 .doc-tab {
-  display: flex; align-items: center; gap: 6px; padding: 0.4rem 0.7rem; border-right: 1px solid var(--border);
+  display: flex; flex: none; align-items: center; gap: 6px; padding: 0.4rem 0.7rem; border-right: 1px solid var(--border);
   cursor: pointer; font-family: ui-monospace, monospace; font-size: 0.85rem; color: var(--muted); white-space: nowrap;
 }
 .doc-tab[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -312,7 +313,7 @@ body.embed .bottom-panel { flex-basis: 9rem; }
 #file-list li.none { color: var(--muted); cursor: default; }
 
 /* ---- Activity bar, and the command palette (docs/03-app-flow.md, Flow 7) --------------------- */
-.body-row { flex: 1; min-height: 0; display: flex; }
+.body-row { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .activitybar {
   flex: 0 0 2.6rem; display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
   padding: 0.4rem 0; background: var(--code-bg); border-right: 1px solid var(--border);
