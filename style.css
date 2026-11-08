@@ -351,6 +351,12 @@ body.theme-light {
   --match: rgba(183, 121, 31, 0.28); color-scheme: light;
 }
 body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
+/* Text colours that pass 4.5:1 on the light backgrounds (the dark-theme colours do not). */
+body.theme-light .cm-gutters { color: var(--muted); }
+body.theme-light .status.ok { color: #1f6b2e; }
+body.theme-light .statusbar .lang-switch { color: var(--accent-dark); }
+body.theme-light #file-list .tree-row[aria-current="true"] { color: #7a4f12; }
+body.theme-light .tab-menu-head { color: var(--muted); }
 
 /* ---- Splitters between the regions --------------------------------------------------------- */
 .splitter { flex: 0 0 4px; cursor: col-resize; background: transparent; position: relative; z-index: 2; }

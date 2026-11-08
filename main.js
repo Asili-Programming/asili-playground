@@ -46,7 +46,7 @@ const STRINGS = {
     share: "Shiriki", linkCopied: "Kiungo kimenakiliwa", linkInBar: "Kiungo kiko kwenye upau wa anwani",
     linkFailed: "Kiungo hakikuundwa", linkBad: "Kiungo hiki hakisomeki",
     menuFile: "Faili", menuEdit: "Hariri", menuRun: "Endesha", menuView: "Mwonekano", menuHelp: "Msaada",
-    closeTab: "Funga kichupo", format: "Nadhifisha", togglePrimary: "Upau wa kushoto",
+    closeTab: "Funga kichupo", moveTo: "Hamisha hadi", menu: "Menyu", format: "Nadhifisha", togglePrimary: "Upau wa kushoto",
     toggleSecondary: "Upau wa kulia (Bodi pepe)", togglePanel: "Paneli ya chini", wiki: "Wiki ya Asili",
     explorer: "Faili", samples: "Mifano", openFiles: "Mafaili yaliyo wazi", editor: "Msimbo",
     panel: "Paneli ya chini", problems: "Matatizo", noProblems: "Hakuna makosa",
@@ -108,7 +108,7 @@ const STRINGS = {
     share: "Share", linkCopied: "Link copied", linkInBar: "The link is in the address bar",
     linkFailed: "Could not make the link", linkBad: "This link could not be read",
     menuFile: "File", menuEdit: "Edit", menuRun: "Run", menuView: "View", menuHelp: "Help",
-    closeTab: "Close tab", format: "Format", togglePrimary: "Left sidebar",
+    closeTab: "Close tab", moveTo: "Move to", menu: "Menu", format: "Format", togglePrimary: "Left sidebar",
     toggleSecondary: "Right sidebar (Virtual board)", togglePanel: "Bottom panel", wiki: "Asili wiki",
     explorer: "Explorer", samples: "Samples", openFiles: "Open files", editor: "Code",
     panel: "Bottom panel", problems: "Problems", noProblems: "No problems",
@@ -422,7 +422,15 @@ addStatusItem({ id: "bell", order: 45, render(slot) {
   slot.id = "status-bell";
   slot.className = "status-item clickable bell";
   slot.title = T.notifications;
+  slot.setAttribute("role", "button");
+  slot.tabIndex = 0;
   slot.setAttribute("aria-label", T.notifications);
+  slot.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openNotifications();
+    }
+  });
   slot.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>`;
   slot.addEventListener("click", () => openNotifications());
 } });
