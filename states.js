@@ -59,6 +59,15 @@ export const MACHINES = {
       { from: "stale", on: "lint", to: "shown" },
     ],
   },
+  // A region (the primary sidebar, the secondary sidebar, the bottom panel): empty when it holds no
+  // view (it is hidden whatever its toggle says), hidden when its toggle is off, shown otherwise.
+  // Derived from the layout's data (deriveRegion), so it has no events.
+  region: {
+    derived: true,
+    start: "empty",
+    states: ["empty", "hidden", "shown"],
+    transitions: [],
+  },
   // The checks of a file: idle, checking after an edit, checked (its problems are shown).
   check: {
     start: "idle",
@@ -112,6 +121,11 @@ export function deriveStates({ workspace, openFiles, activeFile, dirty }) {
     mainArea: activeFile ? "editor" : "empty",
     openFiles: openFiles,
   };
+}
+
+// The state of a region, from how many views it holds and whether it is visible.
+export function deriveRegion({ count, visible }) {
+  return count === 0 ? "empty" : visible ? "shown" : "hidden";
 }
 
 // Whether a list of events leads from `start` to `end` along a machine's table (used by the tests and

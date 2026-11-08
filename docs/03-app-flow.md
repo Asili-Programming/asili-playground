@@ -180,6 +180,9 @@ stateDiagram-v2
 
 - Each region (left sidebar, right sidebar, bottom panel) is **Shown** or **Hidden**, through its toggle
   (see Toggles). A region with no views is hidden whatever its toggle says.
+- A region's state is the `region` machine in `states.js`: **Empty** (no views), **Hidden** (views, toggle
+  off) or **Shown**. It is derived from the view count and the toggle on every move and toggle
+  (`syncRegion` in `layout.js`).
 - A view is in one region, and is **Selected** or not within it. Dragging a view moves it to another
   region; the layout is kept across a reload.
 

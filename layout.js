@@ -8,6 +8,7 @@
 
 import { getCommand, isEnabled, runCommand } from "./commands.js";
 import { isOn, hasToggle, setToggle } from "./settings.js";
+import { MACHINES, createMachine, deriveRegion } from "./states.js";
 
 let brand = { logo: "", title: "Asili", subtitle: "" };
 
@@ -440,7 +441,18 @@ function updateRegions() {
     const node = document.querySelector(`[data-region="${region}"]`);
     const count = document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`).length;
     if (node) node.hidden = count === 0;
+    syncRegion(region);
   }
+}
+
+// Each region's state (states.js, "region"): derived from its view count and its toggle.
+const regionMachines = Object.fromEntries(REGIONS.map((r) => [r, createMachine("region", MACHINES.region)]));
+function syncRegion(region) {
+  const count = document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`).length;
+  regionMachines[region].setDerived(deriveRegion({ count, visible: regionVisible(region) }));
+}
+export function regionState(region) {
+  return regionMachines[region]?.state;
 }
 
 // The views the View menu lists, in their order.
@@ -496,6 +508,7 @@ export const showPanel = (id) => showView(id);
 // Show or hide a whole region (a sidebar, the bottom panel) by its id, at run time.
 export function setRegionVisible(region, visible) {
   document.querySelector(".ide")?.classList.toggle(`hide-${region}`, !visible);
+  if (regionMachines[region]) syncRegion(region);
 }
 
 export function regionVisible(region) {

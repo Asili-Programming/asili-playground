@@ -2,7 +2,7 @@
 // states, and that every state named in a table is reachable from the start state.
 //   node scripts/test_states.mjs
 import assert from "node:assert/strict";
-import { MACHINES, createMachine, deriveStates, walk } from "../states.js";
+import { MACHINES, createMachine, deriveStates, deriveRegion, walk } from "../states.js";
 
 // Each transition of each machine goes where the table says, and nothing else does.
 for (const [name, spec] of Object.entries(MACHINES)) {
@@ -13,7 +13,9 @@ for (const [name, spec] of Object.entries(MACHINES)) {
     assert.equal(m.send(t.on), true, `${name}: ${t.on} from ${t.from}`);
     assert.equal(m.state, t.to, `${name}: ${t.on} from ${t.from} goes to ${t.to}`);
   }
-  // Reachability: every state can be reached from the start state.
+  // Reachability: every state can be reached from the start state (a derived machine has no
+  // transitions; its states are set from the data, and deriveRegion/deriveStates are tested below).
+  if (spec.derived) continue;
   const seen = new Set([spec.start]);
   let grew = true;
   while (grew) {
@@ -47,5 +49,16 @@ const seen = [];
 const m = createMachine("workspace", MACHINES.workspace, (s, info) => seen.push([s, info.event]));
 m.send("open"); m.send("edit"); m.send("edit"); m.setDerived("dirty");
 assert.deepEqual(seen, [["clean", "open"], ["dirty", "edit"]], "a repeated or no-op change is not reported");
+
+// A region is empty with no views (whatever its toggle), hidden when its toggle is off, else shown.
+assert.equal(deriveRegion({ count: 0, visible: true }), "empty");
+assert.equal(deriveRegion({ count: 0, visible: false }), "empty");
+assert.equal(deriveRegion({ count: 2, visible: false }), "hidden");
+assert.equal(deriveRegion({ count: 1, visible: true }), "shown");
+const region = createMachine("region", MACHINES.region);
+region.setDerived(deriveRegion({ count: 1, visible: true }));
+region.setDerived(deriveRegion({ count: 1, visible: false }));
+assert.equal(region.state, "hidden");
+assert.equal(region.send("show"), false, "a derived machine has no events");
 
 console.log("states: every transition, every ignored event, and the derived states check out");
