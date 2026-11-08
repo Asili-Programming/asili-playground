@@ -185,10 +185,10 @@ addMenu({
   ],
 });
 
-addActivity({ id: "act-explorer", title: "explorer", icon: "📁", order: 10, run: () => runCommand("view.explorer") });
-addActivity({ id: "act-board", title: "board", icon: "🔌", order: 20, run: () => runCommand("view.secondary") });
-addActivity({ id: "act-problems", title: "problems", icon: "⚠", order: 30, run: () => runCommand("view.problems") });
-addActivity({ id: "act-palette", title: "menuPalette", icon: "⌘", order: 40, run: () => runCommand("palette.open") });
+addActivity({ id: "act-explorer", title: "explorer", icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`, order: 10, run: () => runCommand("view.explorer") });
+addActivity({ id: "act-board", title: "board", icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg>`, order: 20, run: () => runCommand("view.secondary") });
+addActivity({ id: "act-problems", title: "problems", icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/></svg>`, order: 30, run: () => runCommand("view.problems") });
+addActivity({ id: "act-palette", title: "menuPalette", icon: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7l5 5-5 5M12 17h8"/></svg>`, order: 40, run: () => runCommand("palette.open") });
 
 addToolbarItem({ id: "run-btn", label: "run", className: "primary", order: 10,
   run: () => run(), enabled: () => engineReady && !busy });

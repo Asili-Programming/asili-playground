@@ -121,7 +121,8 @@ export function renderShell(root, { t, embed = false }) {
   const bodyRow = el("div", { class: "body-row" });
   const activity = el("nav", { class: "activitybar", "aria-label": t("activityBar") });
   for (const item of [...registry.activity.values()].filter(keep).sort(byOrder)) {
-    const button = el("button", { id: item.id, class: "activity-btn", title: t(item.title), "aria-label": t(item.title) }, item.icon ?? "•");
+    const button = el("button", { id: item.id, class: "activity-btn", title: t(item.title), "aria-label": t(item.title) });
+    button.innerHTML = item.icon ?? ""; // trusted markup from main.js: an SVG icon, never text
     button.addEventListener("click", () => item.run?.());
     activity.append(button);
   }
