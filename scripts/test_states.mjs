@@ -1,0 +1,64 @@
+// The state machines under Node: every transition in the tables, the ignored events, the derived
+// states, and that every state named in a table is reachable from the start state.
+//   node scripts/test_states.mjs
+import assert from "node:assert/strict";
+import { MACHINES, createMachine, deriveStates, deriveRegion, walk } from "../states.js";
+
+// Each transition of each machine goes where the table says, and nothing else does.
+for (const [name, spec] of Object.entries(MACHINES)) {
+  for (const t of spec.transitions) {
+    assert.ok(spec.states.includes(t.from) && spec.states.includes(t.to), `${name}: ${t.from}->${t.to} names known states`);
+    const m = createMachine(name, spec);
+    m.setDerived(t.from);
+    assert.equal(m.send(t.on), true, `${name}: ${t.on} from ${t.from}`);
+    assert.equal(m.state, t.to, `${name}: ${t.on} from ${t.from} goes to ${t.to}`);
+  }
+  // Reachability: every state can be reached from the start state (a derived machine has no
+  // transitions; its states are set from the data, and deriveRegion/deriveStates are tested below).
+  if (spec.derived) continue;
+  const seen = new Set([spec.start]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const t of spec.transitions) if (seen.has(t.from) && !seen.has(t.to)) { seen.add(t.to); grew = true; }
+  }
+  for (const s of spec.states) if (s !== "unsupported" && s !== "closed") assert.ok(seen.has(s), `${name}: ${s} is reachable`);
+}
+
+// Lint: an edit after a lint makes its findings stale; linting again makes them current.
+assert.equal(walk("lint", "none", ["lint", "edit"]), "stale");
+assert.equal(walk("lint", "none", ["lint", "edit", "lint"]), "shown");
+
+// An event with no transition from the current state is ignored.
+const engine = createMachine("engine");
+assert.equal(engine.send("run"), false, "run while loading is ignored");
+assert.equal(engine.state, "loading");
+
+// The engine's cycle: load, run, stop (the worker is replaced), load again, run again.
+assert.equal(walk("engine", "loading", ["loaded", "run", "stop", "loaded", "run", "done"]), "ready");
+assert.equal(walk("engine", "failed", ["retry", "loaded"]), "ready", "Retry loads again");
+
+// Derived states follow the data.
+assert.deepEqual(deriveStates({ workspace: null, openFiles: [], activeFile: null, dirty: false }),
+  { workspace: "none", explorer: "noWorkspace", mainArea: "empty", openFiles: [] });
+assert.deepEqual(deriveStates({ workspace: { id: 1 }, openFiles: ["a"], activeFile: "a", dirty: true }),
+  { workspace: "dirty", explorer: "tree", mainArea: "editor", openFiles: ["a"] });
+
+// A change reaches the listener once, with the event that caused it.
+const seen = [];
+const m = createMachine("workspace", MACHINES.workspace, (s, info) => seen.push([s, info.event]));
+m.send("open"); m.send("edit"); m.send("edit"); m.setDerived("dirty");
+assert.deepEqual(seen, [["clean", "open"], ["dirty", "edit"]], "a repeated or no-op change is not reported");
+
+// A region is empty with no views (whatever its toggle), hidden when its toggle is off, else shown.
+assert.equal(deriveRegion({ count: 0, visible: true }), "empty");
+assert.equal(deriveRegion({ count: 0, visible: false }), "empty");
+assert.equal(deriveRegion({ count: 2, visible: false }), "hidden");
+assert.equal(deriveRegion({ count: 1, visible: true }), "shown");
+const region = createMachine("region", MACHINES.region);
+region.setDerived(deriveRegion({ count: 1, visible: true }));
+region.setDerived(deriveRegion({ count: 1, visible: false }));
+assert.equal(region.state, "hidden");
+assert.equal(region.send("show"), false, "a derived machine has no events");
+
+console.log("states: every transition, every ignored event, and the derived states check out");

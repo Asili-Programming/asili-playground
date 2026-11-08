@@ -7,6 +7,10 @@
   --accent: #f2b134;
   --accent-dark: #c98f1f;
   --error: #ff6b6b;
+  --code-bg: #0b0d11;
+  --hover: #1d2229;
+  --match: rgba(242, 177, 52, 0.35);
+  color-scheme: dark;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
@@ -62,7 +66,7 @@ button {
   font: inherit;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #1d2229;
+  background: var(--hover);
   color: var(--text);
   padding: 0.4rem 0.7rem;
   cursor: pointer;
@@ -138,7 +142,7 @@ button:disabled {
   word-break: break-word;
   font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
   font-size: 13px;
-  background: #0b0d11;
+  background: var(--code-bg);
 }
 
 #output .line-err {
@@ -198,7 +202,7 @@ body { margin: 0; overflow: hidden; }
   user-select: none;
 }
 .menu > summary::-webkit-details-marker { display: none; }
-.menu[open] > summary, .menu > summary:hover { background: #1d2229; }
+.menu[open] > summary, .menu > summary:hover { background: var(--hover); }
 .menu-items {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; min-width: 14rem;
   display: flex; flex-direction: column; gap: 4px; padding: 6px;
@@ -209,14 +213,14 @@ body { margin: 0; overflow: hidden; }
   text-align: left; border: 0; background: transparent; padding: 0.4rem 0.6rem; color: var(--text);
   text-decoration: none; border-radius: 4px;
 }
-.menu-items button:hover:not(:disabled), .menu-items a:hover { background: #1d2229; }
+.menu-items button:hover:not(:disabled), .menu-items a:hover { background: var(--hover); }
 
 .workbench { flex: 1; min-height: 0; display: flex; }
 .sidebar {
-  flex: 0 0 15rem; min-width: 0; display: flex; flex-direction: column; overflow: auto;
+  flex: 0 0 var(--primary-w, 240px); min-width: 0; display: flex; flex-direction: column; overflow: auto;
   background: var(--panel); border-right: 1px solid var(--border);
 }
-#board-pane { flex: 0 0 17rem; border-right: none; border-left: 1px solid var(--border); }
+#board-pane { flex: 0 0 var(--secondary-w, 272px); border-right: none; border-left: 1px solid var(--border); }
 .sidebar-title {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
   margin: 0; padding: 0.7rem 0.9rem 0.4rem; font-weight: 600;
@@ -227,7 +231,7 @@ body { margin: 0; overflow: hidden; }
 .open-files li {
   padding: 0.3rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: ui-monospace, monospace; font-size: 0.85rem;
 }
-.open-files li[aria-current="true"] { background: #1d2229; color: var(--accent); }
+.open-files li[aria-current="true"] { background: var(--hover); color: var(--accent); }
 
 .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .doc-tabs {
@@ -237,14 +241,14 @@ body { margin: 0; overflow: hidden; }
   display: flex; align-items: center; gap: 6px; padding: 0.4rem 0.7rem; border-right: 1px solid var(--border);
   cursor: pointer; font-family: ui-monospace, monospace; font-size: 0.85rem; color: var(--muted); white-space: nowrap;
 }
-.doc-tab[aria-selected="true"] { background: var(--bg); color: var(--text); box-shadow: inset 0 2px 0 var(--accent); }
+.doc-tab[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 .doc-tab .close { border: 0; background: transparent; padding: 0 0.2rem; color: var(--muted); border-radius: 3px; }
 .doc-tab .close:hover { color: var(--text); background: #262c37; }
 .doc-tab .dot-error { color: var(--error); }
 
 #editor { flex: 1 1 auto; min-height: 12rem; overflow: auto; }
 .bottom-panel {
-  flex: 0 0 13rem; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--border);
+  flex: 0 0 var(--panel-h, 208px); display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--border);
   background: var(--bg);
 }
 .bottom-panel[hidden-panel] { display: none; }
@@ -257,7 +261,7 @@ body { margin: 0; overflow: hidden; }
 .problem-count { margin-left: 0.4rem; color: var(--error); font-size: 0.8rem; }
 .panel-body { flex: 1; min-height: 0; overflow: auto; }
 .panel-body[hidden] { display: none; }
-#output { margin: 0; padding: 0.7rem 0.9rem; min-height: 100%; background: #0b0d11; }
+#output { margin: 0; padding: 0.7rem 0.9rem; min-height: 100%; background: var(--code-bg); }
 .problems { margin: 0; padding: 0.6rem 0.9rem 0.6rem 2.2rem; font-family: ui-monospace, monospace; font-size: 0.85rem; }
 .problems li { padding: 0.15rem 0; cursor: pointer; color: var(--error); }
 .problems li:hover { text-decoration: underline; }
@@ -294,7 +298,7 @@ body.embed .bottom-panel { flex-basis: 9rem; }
 .sidebar-section { padding-bottom: 0.4rem; }
 .sidebar-section select { margin: 0.3rem 0.9rem 0.5rem; width: calc(100% - 1.8rem); }
 .sidebar-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0.9rem 0.5rem; }
-.sidebar-row input[type="text"] { flex: 1 1 8rem; min-width: 0; font: inherit; font-size: 0.85rem; padding: 0.3rem 0.45rem; border-radius: 6px; border: 1px solid var(--border); background: #0b0d11; color: var(--text); }
+.sidebar-row input[type="text"] { flex: 1 1 8rem; min-width: 0; font: inherit; font-size: 0.85rem; padding: 0.3rem 0.45rem; border-radius: 6px; border: 1px solid var(--border); background: var(--code-bg); color: var(--text); }
 .sidebar-row button { font-size: 0.8rem; padding: 0.3rem 0.5rem; }
 .sidebar-note { margin: 0 0.9rem 0.5rem; font-size: 0.8rem; color: var(--muted); min-height: 1em; }
 .sidebar-note.error { color: var(--error); }
@@ -311,13 +315,13 @@ body.embed .bottom-panel { flex-basis: 9rem; }
 .body-row { flex: 1; min-height: 0; display: flex; }
 .activitybar {
   flex: 0 0 2.6rem; display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
-  padding: 0.4rem 0; background: #0b0d11; border-right: 1px solid var(--border);
+  padding: 0.4rem 0; background: var(--code-bg); border-right: 1px solid var(--border);
 }
 .activity-btn {
   width: 2.1rem; height: 2.1rem; padding: 0; border: 0; border-radius: 6px; background: transparent;
   font-size: 1.05rem; line-height: 1; color: var(--muted);
 }
-.activity-btn:hover { background: #1d2229; color: var(--text); }
+.activity-btn:hover { background: var(--hover); color: var(--text); }
 .activity-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .palette {
   position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; align-items: flex-start;
@@ -336,6 +340,189 @@ body.embed .bottom-panel { flex-basis: 9rem; }
 #palette-list li {
   display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0.6rem; border-radius: 6px; cursor: pointer;
 }
-#palette-list li[aria-selected="true"] { background: #1d2229; color: var(--accent); }
+#palette-list li[aria-selected="true"] { background: var(--hover); color: var(--accent); }
 #palette-list li.disabled { opacity: 0.5; }
 .palette-key { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.8rem; white-space: nowrap; }
+
+/* ---- Light theme (View > Colour theme; follows the system by default) ----------------------- */
+body.theme-light {
+  --bg: #ffffff; --panel: #f3f4f6; --border: #d6dae0; --text: #1d2229; --muted: #5b6472;
+  --accent: #b7791f; --accent-dark: #9a6416; --error: #c53030; --code-bg: #fbfbfc; --hover: #e7eaef;
+  --match: rgba(183, 121, 31, 0.28); color-scheme: light;
+}
+body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
+
+/* ---- Splitters between the regions --------------------------------------------------------- */
+.splitter { flex: 0 0 4px; cursor: col-resize; background: transparent; position: relative; z-index: 2; }
+.splitter:hover, .splitter:active { background: var(--accent); }
+.splitter-panel { flex: 0 0 4px; width: 100%; cursor: row-resize; }
+.main > .splitter-panel { order: 0; }
+
+/* ---- Find, replace and go to line (editor overlay) ----------------------------------------- */
+.findbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; padding: 0.35rem 0.5rem;
+  background: var(--panel); border-bottom: 1px solid var(--border); flex: none;
+}
+.findbar[hidden] { display: none; }
+.findbar input[type="text"], .findbar input[type="number"] {
+  font: inherit; font-size: 0.85rem; padding: 0.25rem 0.45rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--code-bg); color: var(--text); width: 14rem;
+}
+.findbar .count { font-size: 0.78rem; color: var(--muted); min-width: 4.5rem; }
+.findbar button { font-size: 0.8rem; padding: 0.2rem 0.5rem; }
+.cm-find-match { background: var(--match); border-radius: 2px; }
+
+/* ---- Status bar items: language, problems, engine ------------------------------------------ */
+.status-item.clickable { cursor: pointer; text-decoration: underline dotted; }
+
+/* ---- Tabs: drag to reorder, right-click menu ----------------------------------------------- */
+.doc-tab.drop-target { box-shadow: inset 2px 0 0 var(--accent); }
+.tab-menu { position: fixed; z-index: 60; min-width: 12rem; display: flex; flex-direction: column; gap: 2px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
+.tab-menu button { text-align: left; border: 0; background: transparent; padding: 0.35rem 0.6rem; color: var(--text); border-radius: 4px; }
+.tab-menu button:hover:not(:disabled) { background: var(--hover); }
+
+/* ---- Explorer: right-click menu and rename -------------------------------------------------- */
+.file-menu { position: fixed; z-index: 60; min-width: 10rem; display: flex; flex-direction: column; gap: 2px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
+.file-menu button { text-align: left; border: 0; background: transparent; padding: 0.35rem 0.6rem; color: var(--text); border-radius: 4px; }
+.file-menu button:hover { background: var(--hover); }
+.file-rename { font: inherit; font-size: 0.85rem; padding: 0.15rem 0.35rem; border-radius: 4px; border: 1px solid var(--accent); background: var(--code-bg); color: var(--text); width: 9rem; }
+
+/* ---- Undo notice --------------------------------------------------------------------------- */
+.undo-note { display: flex; align-items: center; gap: 0.6rem; margin: 0 0.9rem 0.5rem; font-size: 0.8rem; color: var(--muted); }
+.undo-note button { font-size: 0.75rem; padding: 0.15rem 0.45rem; }
+
+/* ---- Tab row: the open files, and icons at its right end ------------------------------------ */
+.tabbar { display: flex; align-items: stretch; flex: none; background: var(--panel); border-bottom: 1px solid var(--border); }
+.tabbar .doc-tabs { flex: 1 1 auto; min-width: 0; border-bottom: 0; }
+.tabbar-end { display: flex; align-items: center; gap: 0.2rem; padding: 0 0.4rem; border-left: 1px solid var(--border); flex: none; }
+.tab-end-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.tab-end-btn:hover { background: var(--hover); color: var(--text); }
+.tab-end-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- Status bar: the language switch, at the right corner ---------------------------------- */
+.statusbar .lang-switch { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; color: var(--accent); text-decoration: none; }
+.statusbar .lang-switch:hover { text-decoration: underline; }
+.tab-end-btn.danger { color: #ff8a8a; }
+
+/* ---- Views: any view can move between the regions (docs/03-app-flow.md, Flow 8) ------------ */
+.region-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.view-pane { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.view-pane[hidden] { display: none; }
+.region-tab { cursor: grab; }
+.region-tab:active { cursor: grabbing; }
+.region-tab.drop-target { box-shadow: inset 2px 0 0 var(--accent); }
+.region-strip { display: flex; flex: none; overflow-x: auto; }
+.region-strip.drop-target { background: var(--hover); }
+.sidebar .region-strip { border-bottom: 1px solid var(--border); }
+.sidebar .region-tab { font-size: 0.75rem; text-transform: none; letter-spacing: normal; }
+
+/* ---- The main area: a tab header and a view, like the panels ------------------------------- */
+.main-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.tabbar .doc-tab { font-size: 0.8rem; padding: 0.45rem 0.8rem; }
+
+/* ---- Explorer sections: the workspace and the files, in one view ---------------------------- */
+.explorer-section { border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+.explorer-heading { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0.6rem 0.9rem 0.2rem; font-weight: 600; }
+
+/* ---- Side bars: a column of icons on the outer edge; the bottom panel keeps its text tabs --- */
+.sidebar { flex-direction: row; }
+.sidebar > .region-body { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.sidebar > .region-strip {
+  flex: 0 0 2.6rem; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.4rem 0;
+  border-bottom: 0; border-right: 1px solid var(--border); overflow: visible; background: #0b0d11;
+}
+#board-pane > .region-strip { order: 2; border-right: 0; border-left: 1px solid var(--border); }
+.sidebar .region-tab {
+  width: 2.1rem; height: 2.1rem; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--muted); box-shadow: none; position: relative;
+}
+.sidebar .region-tab:hover { background: var(--hover); color: var(--text); }
+.sidebar .region-tab[aria-selected="true"] { color: var(--accent); background: var(--hover); }
+.sidebar .tab-text { display: none; }
+.sidebar .tab-icon { display: inline-flex; }
+.bottom-panel .tab-icon { display: none; }
+.bottom-panel .tab-text { display: inline; }
+.sidebar .problem-count { position: absolute; top: 0; right: 0; font-size: 0.6rem; }
+
+/* ---- Explorer tree (docs/06-projects.md, "The Explorer tree") ------------------------------- */
+#file-list { list-style: none; margin: 0; padding: 0.2rem 0; }
+#file-list .tree-row {
+  display: flex; align-items: center; gap: 0.4rem; min-height: 1.6rem; padding-right: 0.6rem; cursor: pointer;
+  font-family: "Segoe UI", system-ui, sans-serif; font-size: 0.82rem; white-space: nowrap; color: var(--text);
+}
+#file-list .tree-row:hover { background: var(--hover); }
+#file-list .tree-row[aria-current="true"] { background: var(--hover); color: var(--accent); }
+#file-list .tree-row.drop-target { box-shadow: inset 0 0 0 1px var(--accent); }
+#file-list .tree-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+#file-list .tree-name.entry { font-weight: 600; }
+#file-list .chev { flex: none; transition: transform 0.12s; color: var(--muted); }
+#file-list .folder[aria-expanded="true"] > .chev { transform: rotate(90deg); }
+#file-list .file > .chev, #file-list .folder .file-meta { display: none; }
+#file-list .ico { flex: none; color: var(--muted); }
+#file-list .ico-folder { color: #d9a441; }
+#file-list .ico-as { color: var(--accent); }
+#file-list .ico-md { color: #6fa8dc; }
+#file-list .ico-config { color: #9aa2b5; }
+#file-list .ico-lock { color: #c9a227; }
+#file-list .file-meta { font-size: 0.7rem; color: var(--muted); flex: none; }
+#file-list .file-delete { display: none; }
+body.theme-light #file-list .ico-folder { color: #b7791f; }
+
+/* ---- Explorer header and the workspace root (as in VS Code) --------------------------------- */
+.explorer-toolbar { display: flex; align-items: center; gap: 0.15rem; padding: 0.35rem 0.5rem 0.35rem 0.9rem; }
+.explorer-title { flex: 1 1 auto; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); }
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+#file-list .tree-row.root { font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.04em; padding-left: 0.4rem; min-height: 1.8rem; }
+#file-list .tree-row.root .ico-folder { color: var(--muted); }
+#file-list .tree-row.config .ico { color: #9aa2b5; }
+
+/* ---- Notifications: a stack at the bottom right; the status bar's bell lists them ----------- */
+.notifications { position: fixed; right: 0.9rem; bottom: 2.2rem; z-index: 70; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-end; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 0.6rem; max-width: 24rem; padding: 0.55rem 0.6rem 0.55rem 0.8rem;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-left: 3px solid var(--muted); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); font-size: 0.85rem; }
+.toast.ok { border-left-color: #7fd48a; }
+.toast.error { border-left-color: var(--error); }
+.toast span { flex: 1 1 auto; }
+.toast-close { border: 0; background: transparent; color: var(--muted); padding: 0 0.2rem; line-height: 1; }
+.toast-close:hover { color: var(--text); }
+.statusbar .bell { display: inline-flex; align-items: center; gap: 0.25rem; }
+
+/* ---- Dialog: asks before a change is lost (no browser dialogs) ------------------------------ */
+.dialog-overlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); }
+.dialog { width: min(28rem, 92vw); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+.dialog p { margin: 0 0 1rem; line-height: 1.4; }
+.dialog-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ---- Menus: separators, key hints, submenus (the View menu) --------------------------------- */
+.menu-items .menu-sep { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+.menu-items button { display: flex; justify-content: space-between; gap: 2rem; white-space: nowrap; }
+.menu-key { color: var(--muted); font-size: 0.75rem; font-family: ui-monospace, monospace; }
+.submenu { position: relative; }
+.submenu-head { width: 100%; display: flex; justify-content: space-between; gap: 2rem; text-align: left; border: 0; background: transparent; padding: 0.4rem 0.6rem; color: var(--text); border-radius: 4px; }
+.submenu-head:hover { background: var(--hover); }
+.submenu-items { display: flex; flex-direction: column; gap: 2px; padding: 0.2rem 0 0.2rem 0.6rem; border-left: 2px solid var(--border); margin-left: 0.6rem; }
+
+/* ---- Toggles in the menus: a dot while the setting is on ----------------------------------- */
+.menu-items button[data-toggle] { padding-left: 1.5rem; position: relative; }
+.menu-items button[data-toggle]::before { content: ""; position: absolute; left: 0.6rem; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: transparent; }
+.menu-items button[data-toggle][aria-checked="true"]::before { background: var(--accent); }
+
+/* ---- The main area's empty state: no open file ---------------------------------------------- */
+.main.no-doc #editor, .main.no-doc .notice { display: none; }
+.empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--muted); text-align: center; padding: 1rem; }
+.empty-state[hidden] { display: none; }
+.empty-state h2 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
+.empty-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.empty-actions button { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+
+/* ---- Explorer's empty state: no workspace open ---------------------------------------------- */
+#file-list .explorer-empty { display: flex; flex-direction: column; gap: 0.7rem; padding: 0.8rem 0.9rem; color: var(--muted); font-size: 0.85rem; list-style: none; cursor: default; }
+#file-list .explorer-empty p { margin: 0; line-height: 1.4; }
+#file-list .explorer-empty .empty-actions { justify-content: flex-start; }
+#file-list .explorer-empty button { font-size: 0.8rem; padding: 0.35rem 0.6rem; }
+.explorer-toolbar button:disabled { opacity: 0.4; cursor: default; }
+#problems li.stale { opacity: 0.55; font-style: italic; }

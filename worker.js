@@ -71,9 +71,27 @@ self.addEventListener("message", async (e) => {
       const json = modules
         ? glue.checkWithModules(e.data.source, modules)
         : glue.check(e.data.source);
-      send({ type: "diag", seq: e.data.seq, json });
+      send({ type: "diag", seq: e.data.seq, key: e.data.key, json });
     } catch {
       // Ignored: the editor keeps its previous marks.
+    }
+    return;
+  }
+  if (e.data.type === "format" || e.data.type === "lint") {
+    let glue;
+    try {
+      glue = await engine;
+    } catch {
+      return;
+    }
+    try {
+      if (e.data.type === "format") {
+        send({ type: "formatted", seq: e.data.seq, text: glue.format(e.data.source) });
+      } else {
+        send({ type: "linted", seq: e.data.seq, json: glue.lint(e.data.source) });
+      }
+    } catch {
+      // Ignored: the editor keeps its text.
     }
     return;
   }

@@ -7,6 +7,8 @@
 // run time (setRegionVisible, refreshMenus, showPanel).
 
 import { getCommand, isEnabled, runCommand } from "./commands.js";
+import { isOn, hasToggle, setToggle } from "./settings.js";
+import { MACHINES, createMachine, deriveRegion } from "./states.js";
 
 let brand = { logo: "", title: "Asili", subtitle: "" };
 
@@ -24,8 +26,8 @@ const registry = {
   menus: new Map(),
   toolbar: new Map(),
   activity: new Map(),
-  sections: { primary: new Map(), secondary: new Map() },
-  panels: new Map(),
+  tabEnd: new Map(),
+  views: new Map(),
   status: new Map(),
 };
 
@@ -48,20 +50,31 @@ export function setBrand(next) { brand = { ...brand, ...next }; }
 // menu: { id, label (string-table key), order, items: [{ id, label, run, enabled?, optional? }] }
 export function addMenu(menu) { add(registry.menus, menu, "menu"); }
 
+// icon at the right end of the tab row: { id, title (key or text), icon (SVG markup), order, run }
+export function addTabEndItem(item) { add(registry.tabEnd, item, "tab row item"); }
+
 // activity bar button (the far-left strip): { id, title (key), icon, order, run, enabled? }
 export function addActivity(item) { add(registry.activity, item, "activity item"); }
 
 // toolbar button, shown on the right of the menu bar: { id, label, run, order, enabled?, className? }
 export function addToolbarItem(item) { add(registry.toolbar, item, "toolbar item"); }
 
-// side: "primary" | "secondary". section: { id, title (string-table key), order, render(container), optional? }
-export function addSidebarSection(side, section) {
-  if (!registry.sections[side]) throw new Error(`layout: no sidebar '${side}'`);
-  add(registry.sections[side], section, "sidebar section");
+// A view is a tab in one of the regions: "primary" (left sidebar), "secondary" (right sidebar) or
+// "panel" (bottom panel). { id, title (key), region, order, render(container), optional? }. Views can
+// be dragged to another region; the page remembers where each one is.
+export function addView(view) {
+  if (!REGIONS.includes(view.region)) throw new Error(`layout: no region '${view.region}'`);
+  // menu: true lists the view in the View menu; keyHint is the key shown beside it.
+  add(registry.views, view, "view");
 }
+export function addSidebarSection(side, section) { addView({ ...section, region: side }); }
+export function addPanel(panel) { addView({ ...panel, region: "panel" }); }
 
-// bottom panel tab: { id, title (key), order, render(container), optional? }
-export function addPanel(panel) { add(registry.panels, panel, "panel"); }
+const REGIONS = ["primary", "secondary", "panel"];
+const REGION_IDS = { primary: "primary", secondary: "board-pane", panel: "panel" };
+const VIEW_TYPE = "application/x-asili-view";
+const VIEWS_KEY = "asili-views-v1";
+const viewNodes = new Map(); // view id -> { tab, pane }
 
 // status bar item: { id, order, render(container), optional? }
 export function addStatusItem(item) { add(registry.status, item, "status item"); }
@@ -97,15 +110,8 @@ export function renderShell(root, { t, embed = false }) {
     const details = el("details", { class: "menu", id: `menu-${menu.id}` });
     details.append(el("summary", { "data-i18n": menu.label }, t(menu.label)));
     const items = el("div", { class: "menu-items" });
-    for (const item of menu.items.filter(keep)) {
-      const button = el("button", { id: item.id, "data-menu-item": item.id }, t(item.label));
-      const run = actionOf(item);
-      button.addEventListener("click", () => {
-        details.open = false;
-        run?.();
-      });
-      items.append(button);
-    }
+    const entries = typeof menu.items === "function" ? menu.items() : menu.items;
+    appendMenuItems(items, entries.filter(keep), details, t, keep);
     details.append(items);
     menubar.append(details);
   }
@@ -126,20 +132,35 @@ export function renderShell(root, { t, embed = false }) {
     button.addEventListener("click", () => item.run?.());
     activity.append(button);
   }
-  bodyRow.append(activity);
+  if (activity.childElementCount) bodyRow.append(activity); // no icon column without icons
   const workbench = el("div", { class: "workbench" });
-  workbench.append(sidebar("primary", "aside", keep, t));
+  workbench.append(regionNode("primary", t));
+  workbench.append(splitter("primary"));
 
   const main = el("section", { id: "editor-pane", class: "main", "aria-label": t("editor") });
-  main.append(
-    el("div", { id: "doc-tabs", class: "doc-tabs", role: "tablist", "aria-label": t("openFiles") }),
+  // The tab row: the open files, then icons at its right end (the language switch).
+  const tabbar = el("div", { class: "tabbar" });
+  tabbar.append(el("div", { id: "doc-tabs", class: "doc-tabs", role: "tablist", "aria-label": t("openFiles") }));
+  const tabEnd = el("div", { class: "tabbar-end" });
+  for (const item of [...registry.tabEnd.values()].filter(keep).sort(byOrder)) {
+    const button = el("button", { id: item.id, class: "tab-end-btn", title: t(item.title), "aria-label": t(item.title) });
+    button.innerHTML = item.icon ?? "";
+    button.addEventListener("click", () => item.run?.());
+    tabEnd.append(button);
+  }
+  tabbar.append(tabEnd);
+  main.append(tabbar);
+  // The main area's view: the editor, with the notice above it.
+  main.append(el("div", { class: "region-body main-body" }, undefined));
+  main.lastChild.append(
     el("div", { id: "notice", class: "notice", role: "alert", hidden: true }),
     el("div", { id: "editor" }),
   );
-  main.append(bottomPanel(keep, t));
+  main.append(regionNode("panel", t));
   workbench.append(main);
 
-  workbench.append(sidebar("secondary", "aside", keep, t));
+  workbench.append(splitter("secondary"));
+  workbench.append(regionNode("secondary", t));
   bodyRow.append(workbench);
   root.append(bodyRow);
 
@@ -151,55 +172,343 @@ export function renderShell(root, { t, embed = false }) {
     statusbar.append(slot);
   }
   root.append(statusbar);
+  wireMenus(root);
+  applyStoredSizes();
+  createViews(keep, t);
+  placeViews();
+  // Dropping a view on the editor area puts it in the bottom panel.
+  const area = document.getElementById("editor-pane");
+  area.addEventListener("dragover", (e) => { if (hasView(e)) e.preventDefault(); });
+  area.addEventListener("drop", (e) => {
+    const id = viewFrom(e);
+    if (!id) return;
+    e.preventDefault();
+    moveView(id, "panel", null);
+  });
 
 }
 
-function sidebar(side, tag, keep, t) {
-  const sections = [...registry.sections[side].values()].filter(keep).sort(byOrder);
-  const node = el("aside", { id: side === "primary" ? "primary" : "board-pane", class: "sidebar", "data-region": side, "aria-label": side });
-  for (const section of sections) {
-    const wrap = el("section", { class: "sidebar-section", id: `section-${section.id}`, "data-section": section.id });
-    wrap.append(el("h2", { class: "sidebar-title" }, t(section.title)));
-    section.render?.(wrap, t);
-    node.append(wrap);
+// Sizes of the regions, as CSS variables on .ide: --primary-w, --secondary-w, --panel-h.
+const SIZES_KEY = "asili-layout-v1";
+const SIZE_LIMITS = { primary: [120, 480], secondary: [140, 480], panel: [80, 600] };
+const DEFAULT_SIZES = { primary: 240, secondary: 272, panel: 208 };
+const VARIABLES = { primary: "--primary-w", secondary: "--secondary-w", panel: "--panel-h" };
+
+function storedSizes() {
+  try {
+    return { ...DEFAULT_SIZES, ...JSON.parse(localStorage.getItem(SIZES_KEY) ?? "{}") };
+  } catch {
+    return { ...DEFAULT_SIZES };
+  }
+}
+
+function applySize(region, px) {
+  const [min, max] = SIZE_LIMITS[region];
+  const value = Math.min(max, Math.max(min, Math.round(px)));
+  document.querySelector(".ide")?.style.setProperty(VARIABLES[region], `${value}px`);
+  return value;
+}
+
+// A draggable bar between two regions. Dragging changes the region's size; the size is kept.
+function splitter(region) {
+  const bar = el("div", { class: `splitter splitter-${region}`, role: "separator", "aria-orientation": region === "panel" ? "horizontal" : "vertical", "data-region": region });
+  bar.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    bar.setPointerCapture(event.pointerId);
+    const start = region === "panel" ? event.clientY : event.clientX;
+    const size = storedSizes()[region];
+    const move = (e) => {
+      const now = region === "panel" ? e.clientY : e.clientX;
+      // The primary sidebar grows to the right; the secondary and the panel grow to the left and up.
+      const delta = region === "primary" ? now - start : start - now;
+      applySize(region, size + delta);
+    };
+    const up = () => {
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", up);
+      const sizes = storedSizes();
+      sizes[region] = parseInt(getComputedStyle(document.querySelector(".ide")).getPropertyValue(VARIABLES[region]), 10) || sizes[region];
+      try { localStorage.setItem(SIZES_KEY, JSON.stringify(sizes)); } catch { /* sizes are kept for this visit only */ }
+    };
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", up);
+  });
+  return bar;
+}
+
+// Apply the remembered sizes once the shell exists.
+function applyStoredSizes() {
+  const sizes = storedSizes();
+  for (const region of Object.keys(VARIABLES)) applySize(region, sizes[region]);
+}
+
+// The items of a menu: buttons (with their key), separators, and submenus (an item whose
+// `submenu` lists items of its own).
+function appendMenuItems(container, entries, details, t, keep) {
+  for (const item of entries) {
+    if (item.separator) {
+      container.append(el("hr", { class: "menu-sep", role: "separator" }));
+      continue;
+    }
+    if (item.submenu) {
+      const sub = el("div", { class: "submenu", id: item.id });
+      const head = el("button", { class: "submenu-head", type: "button", "aria-haspopup": "true", "aria-expanded": "false" }, t(item.label));
+      head.append(el("span", { class: "menu-key", "aria-hidden": "true" }, "›"));
+      const body = el("div", { class: "submenu-items", hidden: true });
+      head.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = body.hidden;
+        body.hidden = !open;
+        head.setAttribute("aria-expanded", String(open));
+      });
+      appendMenuItems(body, item.submenu.filter(keep), details, t, keep);
+      sub.append(head, body);
+      container.append(sub);
+      continue;
+    }
+    const button = el("button", { id: item.id, "data-menu-item": item.id }, t(item.label));
+    if (item.toggle) button.dataset.toggle = item.toggle;
+    if (item.keyHint) button.append(el("span", { class: "menu-key" }, item.keyHint));
+    const run = actionOf(item);
+    button.addEventListener("click", () => {
+      details.open = false;
+      run?.();
+    });
+    container.append(button);
+  }
+}
+
+// Menus: a click outside or Escape closes the open menu; hovering another menu opens it; arrow keys
+// move through the items.
+function wireMenus(root) {
+  const menus = () => [...root.querySelectorAll("details.menu")];
+  document.addEventListener("click", (e) => {
+    for (const m of menus()) if (m.open && !m.contains(e.target)) m.open = false;
+  });
+  root.addEventListener("keydown", (e) => {
+    const open = menus().find((m) => m.open);
+    if (e.key === "Escape" && open) {
+      open.open = false;
+      open.querySelector("summary").focus();
+      e.preventDefault();
+      return;
+    }
+    if (!open || !(e.key === "ArrowDown" || e.key === "ArrowUp")) return;
+    const items = [...open.querySelectorAll(".menu-items button:not(:disabled), .menu-items a")];
+    const at = items.indexOf(document.activeElement);
+    const next = items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length];
+    next?.focus();
+    e.preventDefault();
+  });
+  for (const m of menus()) {
+    m.querySelector("summary").addEventListener("pointerenter", () => {
+      const current = menus().find((x) => x.open);
+      if (current && current !== m) {
+        current.open = false;
+        m.open = true;
+      }
+    });
+  }
+}
+
+// A region: its tab strip, and the body that holds the views' panes. The views are placed in it by
+// placeViews (their tabs and panes are created once, and moved from region to region).
+function regionNode(region, t) {
+  const node = el(region === "panel" ? "section" : "aside", {
+    id: REGION_IDS[region],
+    class: region === "panel" ? "bottom-panel" : "sidebar",
+    "data-region": region,
+    "aria-label": t(region === "panel" ? "panel" : region),
+  });
+  const strip = el("div", { class: "panel-tabs region-strip", role: "tablist", "data-region": region });
+  const body = el("div", { class: "region-body" });
+  node.append(strip, body);
+  for (const target of [strip, body]) {
+    target.addEventListener("dragover", (e) => {
+      if (!hasView(e)) return;
+      e.preventDefault();
+      strip.classList.add("drop-target");
+    });
+    target.addEventListener("dragleave", () => strip.classList.remove("drop-target"));
+    target.addEventListener("drop", (e) => {
+      const id = viewFrom(e);
+      if (!id) return;
+      e.preventDefault();
+      strip.classList.remove("drop-target");
+      moveView(id, region, null);
+    });
   }
   return node;
 }
 
-function bottomPanel(keep, t) {
-  const panel = el("section", { id: "panel", class: "bottom-panel", "aria-label": t("panel") });
-  const tabs = el("div", { class: "panel-tabs", role: "tablist" });
-  const bodies = el("div", { class: "panel-bodies" });
-  for (const p of [...registry.panels.values()].filter(keep).sort(byOrder)) {
+const hasView = (e) => [...(e.dataTransfer?.types ?? [])].includes(VIEW_TYPE);
+const viewFrom = (e) => e.dataTransfer?.getData(VIEW_TYPE) || null;
+
+// The tab and the pane of every view, made once.
+function createViews(keep, t) {
+  for (const view of [...registry.views.values()].filter(keep)) {
     const tab = el("button", {
-      id: `tab-${p.id}`, role: "tab", class: "panel-tab", "data-panel": p.id,
-      "aria-controls": `panel-${p.id}`, "aria-selected": false, "data-i18n": p.title,
-    }, t(p.title));
-    tab.addEventListener("click", () => showPanel(p.id));
-    tabs.append(tab);
-    const body = el("div", { id: `panel-${p.id}`, class: "panel-body", role: "tabpanel", "aria-labelledby": `tab-${p.id}`, hidden: true });
-    p.render?.(body, t);
-    bodies.append(body);
+      id: `tab-${view.id}`, role: "tab", class: "panel-tab region-tab", "data-panel": view.id,
+      "data-view": view.id, draggable: "true", "aria-controls": `panel-${view.id}`, "aria-selected": "false",
+      title: t(view.title), "aria-label": t(view.title),
+    });
+    // The icon shows in the side bars, the name in the bottom panel (see style.css).
+    const icon = el("span", { class: "tab-icon", "aria-hidden": "true" });
+    icon.innerHTML = view.icon ?? "";
+    tab.append(icon, el("span", { class: "tab-text" }, t(view.title)));
+    if (view.id === "problems") tab.append(el("span", { id: "problem-count", class: "problem-count" }));
+    tab.addEventListener("click", () => showView(view.id));
+    tab.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData(VIEW_TYPE, view.id);
+      e.dataTransfer.effectAllowed = "move";
+    });
+    // A drop on a tab puts the dragged view in front of it.
+    tab.addEventListener("dragover", (e) => {
+      if (!hasView(e)) return;
+      e.preventDefault();
+      tab.classList.add("drop-target");
+    });
+    tab.addEventListener("dragleave", () => tab.classList.remove("drop-target"));
+    tab.addEventListener("drop", (e) => {
+      const id = viewFrom(e);
+      if (!id) return;
+      e.preventDefault();
+      e.stopPropagation(); // the strip would otherwise also move the view to its end
+      tab.classList.remove("drop-target");
+      moveView(id, tab.closest(".region-strip").dataset.region, tab);
+    });
+    const pane = el("div", { id: `panel-${view.id}`, class: "panel-body view-pane", role: "tabpanel", "aria-labelledby": `tab-${view.id}`, hidden: true });
+    view.render?.(pane, t);
+    viewNodes.set(view.id, { tab, pane, region: view.region, order: view.order ?? 100 });
   }
-  tabs.append(el("span", { id: "problem-count", class: "problem-count" }));
-  panel.append(tabs, bodies);
-  return panel;
 }
 
-// Show one bottom-panel tab and hide the others.
-export function showPanel(id) {
-  for (const tab of document.querySelectorAll(".panel-tab")) {
-    const active = tab.dataset.panel === id;
-    tab.setAttribute("aria-selected", String(active));
+// Where each view is: the saved place when there is one, else its registered region.
+function placeViews() {
+  const saved = loadViewState();
+  const placed = new Set();
+  for (const region of REGIONS) {
+    const ids = (saved.order?.[region] ?? []).filter((id) => viewNodes.has(id) && !placed.has(id));
+    for (const id of ids) {
+      placed.add(id);
+      putView(id, region, null);
+    }
   }
-  for (const body of document.querySelectorAll(".panel-body")) {
-    body.hidden = body.id !== `panel-${id}`;
+  const rest = [...viewNodes.values()].filter((n, i) => !placed.has([...viewNodes.keys()][i]))
+    .sort((a, b) => a.order - b.order);
+  for (const n of rest) {
+    const id = [...viewNodes].find(([, v]) => v === n)[0];
+    putView(id, n.region, null);
+  }
+  for (const region of REGIONS) {
+    const active = saved.active?.[region];
+    if (active && viewNodes.has(active)) showView(active, { remember: false });
+    else showFirstIn(region);
+  }
+  updateRegions();
+}
+
+// Put a view's tab and pane in a region, before the tab `before` (or at the end).
+function putView(id, region, before) {
+  const n = viewNodes.get(id);
+  if (!n) return;
+  const strip = document.querySelector(`.region-strip[data-region="${region}"]`);
+  const body = document.querySelector(`[data-region="${region}"] .region-body`);
+  if (!strip || !body) return;
+  if (before && before !== n.tab) strip.insertBefore(n.tab, before);
+  else if (!before) strip.append(n.tab);
+  body.append(n.pane);
+  n.region = region;
+}
+
+// Move a view to a region, before a tab, and show it there.
+function moveView(id, region, beforeTab) {
+  if (!viewNodes.has(id)) return;
+  putView(id, region, beforeTab);
+  updateRegions();
+  saveViewState();
+  showView(id);
+}
+
+function showFirstIn(region) {
+  const first = [...document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`)][0];
+  if (first) showView(first.dataset.view, { remember: false });
+}
+
+// A region with no views is hidden; the others show.
+function updateRegions() {
+  for (const region of REGIONS) {
+    const node = document.querySelector(`[data-region="${region}"]`);
+    const count = document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`).length;
+    if (node) node.hidden = count === 0;
+    syncRegion(region);
   }
 }
+
+// Each region's state (states.js, "region"): derived from its view count and its toggle.
+const regionMachines = Object.fromEntries(REGIONS.map((r) => [r, createMachine("region", MACHINES.region)]));
+function syncRegion(region) {
+  const count = document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`).length;
+  regionMachines[region].setDerived(deriveRegion({ count, visible: regionVisible(region) }));
+}
+export function regionState(region) {
+  return regionMachines[region]?.state;
+}
+
+// The views the View menu lists, in their order.
+export function menuViews() {
+  return [...registry.views.values()].filter((v) => v.menu).sort(byOrder);
+}
+
+// Show one view: its tab is selected, its pane shown, and its region made visible.
+export function showView(id, { remember = true } = {}) {
+  const n = viewNodes.get(id);
+  if (!n) return;
+  const region = n.region;
+  // Showing a view shows its region through the region's toggle, so the menus stay right.
+  if (hasToggle(region)) setToggle(region, true);
+  else setRegionVisible(region, true);
+  for (const tab of document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`)) {
+    tab.setAttribute("aria-selected", String(tab === n.tab));
+  }
+  for (const pane of document.querySelectorAll(`[data-region="${region}"] .region-body > .view-pane`)) {
+    pane.hidden = pane !== n.pane;
+  }
+  if (remember) saveViewState();
+}
+
+// The views' places and the selected view of each region, kept in the browser.
+function saveViewState() {
+  const order = {};
+  const active = {};
+  for (const region of REGIONS) {
+    order[region] = [...document.querySelectorAll(`.region-strip[data-region="${region}"] > .region-tab`)]
+      .map((tab) => tab.dataset.view);
+    const selected = document.querySelector(`.region-strip[data-region="${region}"] > .region-tab[aria-selected="true"]`);
+    if (selected) active[region] = selected.dataset.view;
+  }
+  try {
+    localStorage.setItem(VIEWS_KEY, JSON.stringify({ order, active }));
+  } catch {
+    // The places are kept for this visit only.
+  }
+}
+
+function loadViewState() {
+  try {
+    return JSON.parse(localStorage.getItem(VIEWS_KEY) ?? "{}") ?? {};
+  } catch {
+    return {};
+  }
+}
+
+// The bottom panel's tabs were showPanel's; a view is shown the same way.
+export const showPanel = (id) => showView(id);
 
 // Show or hide a whole region (a sidebar, the bottom panel) by its id, at run time.
 export function setRegionVisible(region, visible) {
   document.querySelector(".ide")?.classList.toggle(`hide-${region}`, !visible);
+  if (regionMachines[region]) syncRegion(region);
 }
 
 export function regionVisible(region) {
@@ -208,9 +517,14 @@ export function regionVisible(region) {
 
 // Re-evaluate each menu item's `enabled()` (for example Close tab needs more than one open file).
 export function refreshMenus() {
+  // A toggle's menu item shows a dot while the toggle is on.
+  for (const button of document.querySelectorAll("[data-toggle]")) {
+    button.setAttribute("aria-checked", String(isOn(button.dataset.toggle)));
+  }
   const all = [
-    ...[...registry.menus.values()].flatMap((m) => m.items),
+    ...[...registry.menus.values()].flatMap((m) => (typeof m.items === "function" ? [] : m.items)),
     ...registry.toolbar.values(),
+    ...registry.tabEnd.values(),
   ];
   for (const item of all) {
     const button = document.getElementById(item.id);

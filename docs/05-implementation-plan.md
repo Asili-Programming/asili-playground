@@ -33,11 +33,11 @@ flowchart LR
 | 7 | Share links (`#k=`, deflate) | asili-playground | PG-11 | 1 | In progress: `share.js`, `Shiriki` button, `#k=` on load |
 | 8 | `repository_dispatch` to the website on push to `main` | asili-playground | PG-1 | 1 | Done in CI (`notify-site`), but skipped until `SITE_DISPATCH_TOKEN` is set (board item #6) |
 | 9 | Website `site.yml` builds and hosts `/playground/` | website | PG-1 | 1 | Done (website `site.yml`; manual runs build but only a push to `main` deploys) |
-| 10 | Confirm `pata-fmt` and `pata-lint` build for wasm; split features if not | Asili | PG-6, PG-7 | 2 | Not started |
+| 10 | Confirm `pata-fmt` and `pata-lint` build for wasm; split features if not | Asili | PG-6, PG-7 | 2 | Done: both build for `wasm32-unknown-unknown` (`cargo check`) |
 | 11 | Wasm export `check(files)` with structured diagnostics | Asili | PG-3, PG-8 | 2 | In progress: `check(source)`, first slice |
 | 12 | Structured runtime errors from `run` and `runBundle` | Asili | PG-3 | 2 | Not started |
-| 13 | Wasm export `format(source)` | Asili | PG-6 | 2 | Not started |
-| 14 | Wasm export `lint(files)` | Asili | PG-7 | 2 | Not started |
+| 13 | Wasm export `format(source)` | Asili | PG-6 | 2 | Done: Format document (Alt+Shift+F) in Tools |
+| 14 | Wasm export `lint(files)` | Asili | PG-7 | 2 | Done for one file: Lint file in Tools; findings in Problems and the editor |
 | 15 | Wasm export `test(files)` | Asili | PG-9 | 2 | Not started |
 | 16 | Tool bar buttons, Matatizo and Majaribio panels, editor marks | asili-playground | PG-3, PG-6–9 | 2 | Not started |
 | 17 | Audit which stdlib modules work in the browser | Asili | PG-13 | 3 | Not started |
