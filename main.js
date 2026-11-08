@@ -5,19 +5,20 @@
 import { encodeShare, decodeShare } from "./share.js";
 import {
   ENTRY, newProject, newId, projectFromSample, addFile, deleteFile, fileStatus, importProject,
-  exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf,
+  exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf, renameFile, ProjectError,
 } from "./project.js";
 import {
-  addMenu, addToolbarItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
+  addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
   showPanel, setRegionVisible, regionVisible, refreshMenus,
 } from "./layout.js";
-import { registerCommand, runCommand, installKeys, openPalette } from "./commands.js";
+import { registerCommand, runCommand, installKeys, openPalette, openList } from "./commands.js";
 import { saveSession, loadSession } from "./session.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
   StreamLanguage, syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching,
-  oneDark, Decoration, StateField, StateEffect,
+  oneDark, Decoration, StateField, StateEffect, Compartment,
+  undo, redo, toggleComment, selectAll,
 } from "./vendor/codemirror.js";
 
 // ---- Language -------------------------------------------------------------------------------
@@ -58,6 +59,16 @@ const STRINGS = {
     closeAgain: "Mabadiliko hayajahifadhiwa: bonyeza × tena kufunga bila kuhifadhi",
     activityBar: "Upau wa vitendo", explorer: "Faili", board: "Bodi pepe", problems: "Matatizo",
     menuPalette: "Amri",
+    edit: "Hariri", undo: "Rudisha nyuma", redo: "Rudia", cut: "Kata", copy: "Nakili", paste: "Bandika",
+    selectAll: "Chagua yote", find: "Tafuta", replace: "Badilisha", goToLine: "Nenda kwenye mstari",
+    comment: "Weka maoni", goToFile: "Nenda kwenye faili", theme: "Rangi ya mandhari",
+    findPlaceholder: "Tafuta", replacePlaceholder: "Badilisha na", linePlaceholder: "Namba ya mstari",
+    findNext: "Ifuatayo", findPrev: "Iliyotangulia", replaceOne: "Badilisha", replaceAll: "Zote", closeFind: "Funga",
+    lastFile: "Hili ndilo faili la mwisho: linabaki wazi", undoLabel: "Rudisha", deleted: "Limefutwa",
+    rename: "Badilisha jina", duplicate: "Nakili faili", delete: "Futa", projectRename: "Badilisha jina",
+    projectDelete: "Futa mradi", projectDeleted: "Mradi umefutwa", fileRenamed: "Faili limebadilishwa jina",
+    problemsIn: "Makosa", noProblemsInProject: "Hakuna makosa kwenye mradi", lightLabel: "Mwanga", darkLabel: "Giza",
+    lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia",
   },
   en: {
     title: "Asili — Playground",
@@ -89,6 +100,16 @@ const STRINGS = {
     closeAgain: "Unsaved changes: click × again to close without saving",
     activityBar: "Activity bar", explorer: "Explorer", board: "Board", problems: "Problems",
     menuPalette: "Commands",
+    edit: "Edit", undo: "Undo", redo: "Redo", cut: "Cut", copy: "Copy", paste: "Paste",
+    selectAll: "Select all", find: "Find", replace: "Replace", goToLine: "Go to line",
+    comment: "Toggle comment", goToFile: "Go to file", theme: "Colour theme",
+    findPlaceholder: "Find", replacePlaceholder: "Replace with", linePlaceholder: "Line number",
+    findNext: "Next", findPrev: "Previous", replaceOne: "Replace", replaceAll: "All", closeFind: "Close",
+    lastFile: "This is the last file: it stays open", undoLabel: "Undo", deleted: "Deleted",
+    rename: "Rename", duplicate: "Duplicate", delete: "Delete", projectRename: "Rename",
+    projectDelete: "Delete project", projectDeleted: "Project deleted", fileRenamed: "File renamed",
+    problemsIn: "Problems", noProblemsInProject: "No problems in the project", lightLabel: "Light", darkLabel: "Dark",
+    lang: "Language", closeOthers: "Close others", closeRight: "Close to the right",
   },
 };
 const T = STRINGS[lang];
@@ -124,10 +145,24 @@ registerCommand({ id: "project.saveAsProject", title: "Save sample as project", 
 registerCommand({ id: "project.export", title: "Export project", run: () => exportActiveProject(),
   enabled: () => !!activeProject() });
 registerCommand({ id: "project.import", title: "Import project", run: () => document.getElementById("import-file").click() });
-registerCommand({ id: "file.new", title: "New file", key: "Ctrl+N", inEditor: true,
-  run: () => { setRegionVisible("primary", true); document.getElementById("file-name")?.focus(); } });
-registerCommand({ id: "file.close", title: "Close tab", key: "Ctrl+W", inEditor: true,
+registerCommand({ id: "file.new", title: "New file", key: "Alt+N", inEditor: true, inInput: true,
+  run: () => createUntitledFile() });
+registerCommand({ id: "file.close", title: "Close tab", key: "Alt+W", inEditor: true, inInput: true,
   run: () => requestClose(activeDoc), enabled: () => !!activeDoc });
+registerCommand({ id: "file.quickOpen", title: "Go to file", key: "Ctrl+P", inEditor: true,
+  run: () => openQuickOpen() });
+registerCommand({ id: "edit.find", title: "Find", key: "Ctrl+F", inEditor: true, run: () => openFind("find") });
+registerCommand({ id: "edit.replace", title: "Replace", key: "Ctrl+H", inEditor: true, run: () => openFind("replace") });
+registerCommand({ id: "edit.goToLine", title: "Go to line", key: "Ctrl+G", inEditor: true, run: () => openFind("goto") });
+registerCommand({ id: "edit.comment", title: "Toggle comment", key: "Ctrl+/", inEditor: true,
+  run: () => toggleComment(editor) });
+registerCommand({ id: "edit.undo", title: "Undo", run: () => undo(editor) });
+registerCommand({ id: "edit.redo", title: "Redo", run: () => redo(editor) });
+registerCommand({ id: "edit.cut", title: "Cut", run: () => { editor.focus(); document.execCommand("cut"); } });
+registerCommand({ id: "edit.copy", title: "Copy", run: () => { editor.focus(); document.execCommand("copy"); } });
+registerCommand({ id: "edit.paste", title: "Paste", run: () => pasteFromClipboard() });
+registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAll(editor) });
+registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleTheme() });
 registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
 registerCommand({ id: "run.start", title: "Run", key: ["Ctrl+Enter", "F5"], inEditor: true, inInput: true,
   run: () => run(), enabled: () => engineReady && !busy });
@@ -161,6 +196,16 @@ addMenu({
 addMenu({
   id: "hariri", label: "menuEdit", order: 20,
   items: [
+    { id: "menu-undo", label: "undo", command: "edit.undo" },
+    { id: "menu-redo", label: "redo", command: "edit.redo" },
+    { id: "menu-cut", label: "cut", command: "edit.cut" },
+    { id: "menu-copy", label: "copy", command: "edit.copy" },
+    { id: "menu-paste", label: "paste", command: "edit.paste" },
+    { id: "menu-select-all", label: "selectAll", command: "edit.selectAll" },
+    { id: "menu-find", label: "find", command: "edit.find" },
+    { id: "menu-replace", label: "replace", command: "edit.replace" },
+    { id: "menu-go-to-line", label: "goToLine", command: "edit.goToLine" },
+    { id: "menu-comment", label: "comment", command: "edit.comment" },
     { id: "clear-btn", label: "clear" },
     { id: "format-btn", label: "format", enabled: () => false },
   ],
@@ -178,6 +223,7 @@ addMenu({
     { id: "toggle-primary", label: "togglePrimary", command: "view.primary" },
     { id: "toggle-secondary", label: "toggleSecondary", command: "view.secondary" },
     { id: "toggle-panel", label: "togglePanel", command: "view.panel" },
+    { id: "menu-theme", label: "theme", command: "view.theme" },
     { id: "menu-palette", label: "menuPalette", command: "palette.open" },
   ],
 });
@@ -197,7 +243,9 @@ addToolbarItem({ id: "run-btn", label: "run", className: "primary", order: 10,
   run: () => run(), enabled: () => engineReady && !busy });
 addToolbarItem({ id: "stop-btn", label: "stop", className: "danger", order: 20,
   run: () => stop(), enabled: () => busy });
-addToolbarItem({ id: "lugha-switch", label: "switchLabel", order: 90, optional: true,
+// The language switch: an icon at the right end of the tab row; its title names the other language.
+addTabEndItem({ id: "lugha-switch", title: "switchLabel", order: 10, optional: true,
+  icon: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>`,
   run: () => { location.href = `?lugha=${T.switchTo}`; } });
 
 addSidebarSection("primary", {
@@ -225,7 +273,12 @@ addSidebarSection("primary", {
         <button id="project-import-btn" type="button">${t("importProject")}</button>
         <input id="import-file" type="file" accept=".json,application/json" hidden />
       </div>
-      <p id="project-note" class="sidebar-note" role="status"></p>`;
+      <div class="sidebar-row">
+        <button id="project-rename-btn" type="button">${t("projectRename")}</button>
+        <button id="project-delete-btn" type="button">${t("projectDelete")}</button>
+      </div>
+      <p id="project-note" class="sidebar-note" role="status"></p>
+      <div id="undo-note" class="undo-note" role="status" hidden></div>`;
   },
 });
 addSidebarSection("primary", {
@@ -278,8 +331,19 @@ addStatusItem({ id: "state", order: 10, render(slot) {
 } });
 addStatusItem({ id: "cursor", order: 20, render(slot) { slot.id = "cursor-pos"; } });
 addStatusItem({ id: "file", order: 30, render(slot) { slot.id = "file-name"; } });
+addStatusItem({ id: "language", order: 40, render(slot, t) { slot.id = "status-language"; slot.textContent = t("lang") + ": Asili"; } });
+addStatusItem({ id: "problems", order: 50, render(slot) {
+  slot.id = "status-problems";
+  slot.className = "status-item clickable";
+  slot.addEventListener("click", () => { setRegionVisible("panel", true); showPanel("problems"); });
+} });
 
 renderShell(document.querySelector(".ide"), { t: (key) => T[key] ?? key, embed: isEmbed });
+// The theme is set before the editor exists, so the editor starts in it.
+document.body.classList.toggle("theme-light", initialTheme() === "light");
+mountFindBar();
+// The board opens when a run uses pins (handleEvent); it does not take the right side before then.
+if (!isEmbed) setRegionVisible("secondary", false);
 if (isEmbed) {
   setRegionVisible("primary", false);
   setRegionVisible("secondary", false);
@@ -383,6 +447,15 @@ function requestCheck() {
   const p = activeDoc?.projectId ? projectById(activeDoc.projectId) : null;
   const modules = p ? Object.keys(p.files).filter((f) => f !== activeDoc.file).map(moduleOf) : [];
   worker.postMessage({ type: "check", seq: checkSeq, source: editor.state.doc.toString(), modules });
+  if (p) {
+    for (const file of Object.keys(p.files)) {
+      if (file === activeDoc.file) continue;
+      worker.postMessage({
+        type: "check", seq: -1, key: `p:${p.id}:${file}`, source: liveText(p, file),
+        modules: Object.keys(p.files).filter((f) => f !== file).map(moduleOf),
+      });
+    }
+  }
 }
 
 // The tabs and the file list show unsaved changes; they follow edits after a short pause.
@@ -442,6 +515,26 @@ function scheduleCheck() {
   checkTimer = setTimeout(requestCheck, 400);
 }
 
+// ---- Find highlights and the colour theme ----------------------------------------------------
+// The find bar's matches are marks in the editor (a field, like the diagnostics). The theme is a
+// compartment, so switching it reconfigures the editor without losing its text or history.
+const setFindEffect = StateEffect.define();
+const findField = StateField.define({
+  create: () => Decoration.none,
+  update(marks, tr) {
+    marks = marks.map(tr.changes);
+    for (const effect of tr.effects) {
+      if (effect.is(setFindEffect)) {
+        marks = Decoration.set(effect.value.map((m) => Decoration.mark({ class: "cm-find-match" }).range(m.from, m.to)), true);
+      }
+    }
+    return marks;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+const themeCell = new Compartment();
+const darkThemeExtension = () => (document.body.classList.contains("theme-light") ? [] : oneDark);
+
 // ---- Editor ---------------------------------------------------------------------------------
 const state0 = () => EditorState.create({
   doc: "",
@@ -455,7 +548,8 @@ const state0 = () => EditorState.create({
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
     StreamLanguage.define({ ...asiliMode, languageData: { commentTokens: { line: "#" } } }),
     keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
-    oneDark,
+    themeCell.of(darkThemeExtension()),
+    findField,
     // Line numbers need 4.5:1 contrast; oneDark's default gutter colour is too faint.
     EditorView.theme({ ".cm-gutters": { color: "#9aa2b5" } }),
     EditorView.lineWrapping,
@@ -465,6 +559,7 @@ const state0 = () => EditorState.create({
         if (activeDoc) activeDoc.text = update.state.doc.toString();
         scheduleCheck();
         scheduleTabs();
+        if (findState.query) setTimeout(() => runFind(findState.query), 0);
       }
       if (update.docChanged || update.selectionSet) updateCursor(update.state);
     }),
@@ -521,6 +616,7 @@ function resetBoard() {
 }
 
 function handleEvent(json) {
+  if (!isEmbed && !regionVisible("secondary")) setRegionVisible("secondary", true);
   let ev;
   try {
     ev = JSON.parse(json);
@@ -584,6 +680,15 @@ function onWorkerMessage(e) {
     appendOutput(m.text, m.err);
   } else if (m.type === "tukio") {
     handleEvent(m.json);
+  } else if (m.type === "diag" && m.key) {
+    try {
+      projectProblems.set(m.key, JSON.parse(m.json));
+      const d = docs.find((x) => x.key === m.key);
+      if (d) d.error = JSON.parse(m.json).length > 0;
+      renderAllProblems();
+    } catch {
+      // A malformed result leaves that file's previous problems in place.
+    }
   } else if (m.type === "diag") {
     if (m.seq !== checkSeq) return;
     try {
@@ -690,12 +795,28 @@ function isDirty(d) {
 function renderTabs() {
   const bar = document.getElementById("doc-tabs");
   bar.replaceChildren();
-  for (const d of docs) {
+  docs.forEach((d, index) => {
     const tab = document.createElement("div");
     tab.className = "doc-tab";
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(d === activeDoc));
     tab.dataset.doc = d.key;
+    tab.draggable = true;
+    tab.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", String(index));
+      e.dataTransfer.effectAllowed = "move";
+    });
+    tab.addEventListener("dragover", (e) => { e.preventDefault(); tab.classList.add("drop-target"); });
+    tab.addEventListener("dragleave", () => tab.classList.remove("drop-target"));
+    tab.addEventListener("drop", (e) => {
+      e.preventDefault();
+      tab.classList.remove("drop-target");
+      moveDoc(Number(e.dataTransfer.getData("text/plain")), index);
+    });
+    tab.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showTabMenu(e.clientX, e.clientY, d);
+    });
     if (d.error) {
       const dot = document.createElement("span");
       dot.className = "dot-error";
@@ -723,7 +844,7 @@ function renderTabs() {
     tab.append(close);
     tab.addEventListener("click", () => activate(d));
     bar.append(tab);
-  }
+  });
   renderFiles();
 }
 
@@ -771,10 +892,14 @@ function requestClose(d) {
   closeDoc(d);
 }
 
-function closeDoc(d) {
+function closeDoc(d, { force = false } = {}) {
   if (!d) return;
   const i = docs.indexOf(d);
   if (i < 0) return;
+  if (docs.length === 1 && !force) {
+    note(T.lastFile, "ok");
+    return;
+  }
   docs.splice(i, 1);
   if (d === activeDoc) {
     activeDoc = null;
@@ -787,6 +912,7 @@ function closeDoc(d) {
   } else {
     renderTabs();
   }
+  persistSession();
   refreshMenus();
 }
 
@@ -913,26 +1039,6 @@ function createFileFromInput() {
   }
 }
 
-function deleteProjectFile(p, file, button) {
-  if (button.dataset.armed !== "yes") {
-    button.dataset.armed = "yes";
-    button.textContent = T.confirmDelete;
-    setTimeout(() => {
-      button.dataset.armed = "";
-      button.textContent = T.deleteFile;
-    }, 3000);
-    return;
-  }
-  try {
-    deleteFile(p, file);
-  } catch (e) {
-    note(e.message, "error");
-    return;
-  }
-  for (const d of docs.filter((x) => x.key === `p:${p.id}:${file}`)) closeDoc(d);
-  persistProjects();
-  renderTabs();
-}
 
 function renderProjectSection() {
   const picker = document.getElementById("project-picker");
@@ -969,10 +1075,16 @@ function renderFiles() {
     li.setAttribute("aria-current", String(open !== undefined && open === activeDoc));
     const name = document.createElement("span");
     name.textContent = file;
+    name.title = file;
     name.addEventListener("click", () => openProjectFile(p, file));
+    name.addEventListener("dblclick", () => startRename(p, file, li));
     const meta = document.createElement("span");
     meta.className = "file-meta";
     meta.textContent = `${status}${open?.error ? ` · ${T.stErrors}` : ""}`;
+    li.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showFileMenu(e.clientX, e.clientY, p, file, li);
+    });
     li.append(name, meta);
     if (file !== ENTRY) {
       const del = document.createElement("button");
@@ -993,27 +1105,61 @@ function renderFiles() {
 }
 
 // ---- Problems: the diagnostics of the active document -----------------------------------------
+// The problems of the active file (from its last check), and of the other files of the project.
+let activeProblems = [];
+const projectProblems = new Map(); // document key -> diagnostics from the last check of that file
+
 function renderProblems(items) {
+  activeProblems = items;
+  if (activeDoc) activeDoc.error = items.length > 0;
+  renderAllProblems();
+}
+
+function renderAllProblems() {
   const list = document.getElementById("problems");
   const count = document.getElementById("problem-count");
+  if (!list) return;
+  const entries = [];
+  if (activeDoc) {
+    for (const d of activeProblems) entries.push({ key: activeDoc.key, file: activeDoc.file ?? activeDoc.name, ...d });
+  }
+  const p = activeProject();
+  for (const [key, items] of projectProblems) {
+    if (key === activeDoc?.key || !p || !key.startsWith(`p:${p.id}:`)) continue;
+    const file = key.slice(`p:${p.id}:`.length);
+    for (const d of items) entries.push({ key, file, ...d });
+  }
   list.replaceChildren();
-  if (items.length === 0) {
+  if (entries.length === 0) {
     const none = document.createElement("li");
     none.className = "none";
-    none.textContent = T.noProblems;
+    none.textContent = p ? T.noProblemsInProject : T.noProblems;
     list.append(none);
   }
-  for (const d of items) {
+  for (const e of entries) {
     const li = document.createElement("li");
-    li.textContent = `Ln ${d.line}: ${d.code} ${d.message}`;
-    li.addEventListener("click", () => goToLine(d.line));
+    li.textContent = `${e.file} · Ln ${e.line}: ${e.code} ${e.message}`;
+    li.addEventListener("click", () => openProblem(e));
     list.append(li);
   }
-  count.textContent = items.length ? String(items.length) : "";
-  if (activeDoc) {
-    activeDoc.error = items.length > 0;
-    renderTabs();
+  count.textContent = entries.length ? String(entries.length) : "";
+  const status = document.getElementById("status-problems");
+  if (status) status.textContent = entries.length ? `● ${entries.length}` : "";
+  renderTabs();
+}
+
+function openProblem(e) {
+  if (activeDoc && e.key === activeDoc.key) {
+    goToLine(e.line);
+    return;
   }
+  const d = docs.find((x) => x.key === e.key);
+  if (d) activate(d);
+  else {
+    const p = activeProject();
+    if (p) openProjectFile(p, e.file);
+  }
+  setTimeout(() => goToLine(e.line), 0);
 }
 
 function goToLine(line) {
@@ -1122,6 +1268,8 @@ document.body.addEventListener("click", (e) => {
   if (id === "project-export-btn") exportActiveProject();
   if (id === "project-import-btn") document.getElementById("import-file").click();
   if (id === "file-create-btn") createFileFromInput();
+  if (id === "project-rename-btn") renameActiveProject();
+  if (id === "project-delete-btn") deleteActiveProject(e.target);
 });
 document.body.addEventListener("change", (e) => {
   if (e.target?.id === "import-file" && e.target.files?.[0]) importFile(e.target.files[0]);
@@ -1139,6 +1287,466 @@ stopBtn.addEventListener("click", stop);
 
 // Keys come from the command registry (commands.js).
 installKeys(window);
+
+
+// ---- Tabs: reorder, context menu, close groups -------------------------------------------------
+function moveDoc(from, to) {
+  if (from === to || from < 0 || from >= docs.length || to < 0 || to >= docs.length) return;
+  const [d] = docs.splice(from, 1);
+  docs.splice(to, 0, d);
+  renderTabs();
+  persistSession();
+}
+
+function closeOthers(keep, right = false) {
+  const index = docs.indexOf(keep);
+  const targets = docs.filter((d, i) => d !== keep && (!right || i > index));
+  let kept = 0;
+  for (const d of targets) {
+    if (isDirty(d)) {
+      kept += 1;
+      continue;
+    }
+    closeDoc(d, { force: true });
+  }
+  if (kept) note(`${T.dirtyWarn}: ${kept}`, "error");
+}
+
+let tabMenu = null;
+function showTabMenu(x, y, d) {
+  tabMenu?.remove();
+  const menu = document.createElement("div");
+  menu.className = "tab-menu";
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  const add = (label, run) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => { menu.remove(); tabMenu = null; run(); });
+    menu.append(b);
+  };
+  add(T.closeTab, () => requestClose(d));
+  add(T.closeOthers, () => closeOthers(d));
+  add(T.closeRight, () => closeOthers(d, true));
+  document.body.append(menu);
+  tabMenu = menu;
+  const dismiss = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      tabMenu = null;
+      document.removeEventListener("pointerdown", dismiss);
+    }
+  };
+  document.addEventListener("pointerdown", dismiss);
+}
+
+// ---- Explorer: rename, duplicate, delete with undo -----------------------------------------------
+let lastRemoved = null; // { kind: "file" | "project", ... } for the Undo notice
+let undoTimer = null;
+
+function showUndo(message) {
+  const box = document.getElementById("undo-note");
+  if (!box) return;
+  box.replaceChildren();
+  const text = document.createElement("span");
+  text.textContent = message;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = T.undoLabel;
+  button.addEventListener("click", undoRemoval);
+  box.append(text, button);
+  box.hidden = false;
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { box.hidden = true; lastRemoved = null; }, 8000);
+}
+
+function undoRemoval() {
+  const r = lastRemoved;
+  if (!r) return;
+  lastRemoved = null;
+  document.getElementById("undo-note").hidden = true;
+  if (r.kind === "file") {
+    const p = projectById(r.projectId);
+    if (!p) return;
+    try {
+      addFile(p, moduleOf(r.file), r.text);
+    } catch (e) {
+      note(errText(e), "error");
+      return;
+    }
+    persistProjects();
+    openProjectFile(p, r.file);
+    renderFiles();
+  } else {
+    projects.push(r.project);
+    activeProjectId = r.project.id;
+    persistProjects();
+    openProjectFile(r.project, ENTRY);
+    renderProjectSection();
+  }
+}
+
+function removeFile(p, file) {
+  const text = p.files[file];
+  try {
+    deleteFile(p, file);
+  } catch (e) {
+    note(errText(e), "error");
+    return;
+  }
+  for (const d of docs.filter((x) => x.key === `p:${p.id}:${file}`)) closeDoc(d, { force: true });
+  persistProjects();
+  lastRemoved = { kind: "file", projectId: p.id, file, text };
+  showUndo(`${file}: ${T.deleted}`);
+  renderTabs();
+}
+
+function startRename(p, file, li) {
+  const old = li.querySelector("span");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "file-rename";
+  input.value = moduleOf(file);
+  input.setAttribute("aria-label", T.rename);
+  old.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    if (!commit) {
+      renderFiles();
+      return;
+    }
+    try {
+      const next = renameFile(p, file, input.value.trim());
+      for (const d of docs.filter((x) => x.key === `p:${p.id}:${file}`)) {
+        d.key = `p:${p.id}:${next}`;
+        d.name = next;
+        d.file = next;
+      }
+      persistProjects();
+      note(T.fileRenamed, "ok");
+    } catch (e) {
+      note(errText(e), "error");
+    }
+    renderTabs();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener("blur", () => finish(false));
+}
+
+function duplicateFile(p, file) {
+  const base = `${moduleOf(file)}_kopi`;
+  let name = base;
+  for (let n = 2; `${name}.as` in p.files; n++) name = `${base}_${n}`;
+  try {
+    const next = addFile(p, name, p.files[file]);
+    persistProjects();
+    openProjectFile(p, next);
+    renderFiles();
+  } catch (e) {
+    note(errText(e), "error");
+  }
+}
+
+let fileMenu = null;
+function showFileMenu(x, y, p, file, li) {
+  fileMenu?.remove();
+  const menu = document.createElement("div");
+  menu.className = "file-menu";
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  const add = (label, run, armedLabel) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      if (armedLabel && b.dataset.armed !== "yes") {
+        b.dataset.armed = "yes";
+        b.textContent = armedLabel;
+        return;
+      }
+      menu.remove();
+      fileMenu = null;
+      run();
+    });
+    menu.append(b);
+  };
+  add(T.rename, () => startRename(p, file, li));
+  add(T.duplicate, () => duplicateFile(p, file));
+  if (file !== ENTRY) add(T.delete, () => removeFile(p, file), T.confirmDelete);
+  document.body.append(menu);
+  fileMenu = menu;
+  const dismiss = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      fileMenu = null;
+      document.removeEventListener("pointerdown", dismiss);
+    }
+  };
+  document.addEventListener("pointerdown", dismiss);
+}
+
+function deleteProjectFile(p, file, button) {
+  if (button.dataset.armed !== "yes") {
+    button.dataset.armed = "yes";
+    button.textContent = T.confirmDelete;
+    setTimeout(() => {
+      button.dataset.armed = "";
+      button.textContent = T.deleteFile;
+    }, 3000);
+    return;
+  }
+  removeFile(p, file);
+}
+
+function renameActiveProject() {
+  const p = activeProject();
+  const input = document.getElementById("project-name");
+  const name = input?.value.trim();
+  if (!p || !name) {
+    note(T.noProject, "error");
+    return;
+  }
+  p.name = uniqueName(name, projects.filter((x) => x.id !== p.id).map((x) => x.name));
+  p.updated = new Date().toISOString();
+  input.value = "";
+  persistProjects();
+  for (const d of docs) if (d.projectId === p.id) renderTabs();
+  renderProjectSection();
+  note(T.fileRenamed, "ok");
+}
+
+function deleteActiveProject(button) {
+  const p = activeProject();
+  if (!p) return;
+  if (button.dataset.armed !== "yes") {
+    button.dataset.armed = "yes";
+    button.textContent = T.confirmDelete;
+    setTimeout(() => { button.dataset.armed = ""; button.textContent = T.projectDelete; }, 3000);
+    return;
+  }
+  button.dataset.armed = "";
+  button.textContent = T.projectDelete;
+  for (const d of docs.filter((x) => x.projectId === p.id)) closeDoc(d, { force: true });
+  projects = projects.filter((x) => x.id !== p.id);
+  lastRemoved = { kind: "project", project: p };
+  activeProjectId = projects[0]?.id ?? null;
+  persistProjects();
+  showUndo(`${p.name}: ${T.deleted}`);
+  renderProjectSection();
+  renderTabs();
+  if (docs.length === 0) {
+    const first = [...samplesById.keys()][0];
+    if (first) openSample(first);
+  }
+}
+
+function errText(e) {
+  if (e instanceof Error && e.key) return `${T[e.key] ?? e.key}${e.detail ? `: ${e.detail}` : ""}`;
+  return e.message;
+}
+
+function createUntitledFile() {
+  try {
+    let p = activeProject();
+    if (!p) p = createProject(`Mradi ${projects.length + 1}`);
+    let n = 1;
+    while (`bila_jina_${n}.as` in p.files) n += 1;
+    const file = addFile(p, `bila_jina_${n}`, "");
+    persistProjects();
+    openProjectFile(p, file);
+    renderFiles();
+    setRegionVisible("primary", true);
+  } catch (e) {
+    note(errText(e), "error");
+  }
+}
+
+// ---- Quick open, the find bar, go to line ---------------------------------------------------------
+function openQuickOpen() {
+  const items = [];
+  const p = activeProject();
+  if (p) {
+    for (const file of Object.keys(p.files)) {
+      items.push({ label: file, detail: p.name, run: () => openProjectFile(p, file) });
+    }
+  }
+  for (const [file, sample] of samplesById) {
+    const label = (lang === "en" && sample.label_en) ? sample.label_en : sample.label;
+    items.push({ label, detail: file, run: () => openSample(file) });
+  }
+  openList({ placeholder: T.goToFile, items });
+}
+
+const findState = { query: "", matches: [], index: -1 };
+let findMode = "find";
+
+function mountFindBar() {
+  const bar = document.createElement("div");
+  bar.className = "findbar";
+  bar.hidden = true;
+  bar.innerHTML = `
+    <input id="find-input" type="text" aria-label="${T.findPlaceholder}" placeholder="${T.findPlaceholder}" />
+    <span id="find-count" class="count"></span>
+    <button type="button" id="find-prev">${T.findPrev}</button>
+    <button type="button" id="find-next">${T.findNext}</button>
+    <input id="replace-input" type="text" aria-label="${T.replacePlaceholder}" placeholder="${T.replacePlaceholder}" hidden />
+    <button type="button" id="replace-one" hidden>${T.replaceOne}</button>
+    <button type="button" id="replace-all" hidden>${T.replaceAll}</button>
+    <input id="goto-input" type="number" min="1" aria-label="${T.linePlaceholder}" placeholder="${T.linePlaceholder}" hidden />
+    <button type="button" id="find-close">${T.closeFind}</button>`;
+  document.getElementById("editor").before(bar);
+  const $ = (id) => document.getElementById(id);
+  $("find-input").addEventListener("input", (e) => runFind(e.target.value));
+  $("find-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); moveFind(e.shiftKey ? -1 : 1); }
+    if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+  });
+  $("replace-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); replaceOne(); }
+    if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+  });
+  $("goto-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); const n = parseInt(e.target.value, 10); closeFind(); goToLine(n); }
+    if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+  });
+  $("find-next").addEventListener("click", () => moveFind(1));
+  $("find-prev").addEventListener("click", () => moveFind(-1));
+  $("replace-one").addEventListener("click", replaceOne);
+  $("replace-all").addEventListener("click", replaceAll);
+  $("find-close").addEventListener("click", closeFind);
+}
+
+function openFind(mode) {
+  const bar = document.querySelector(".findbar");
+  if (!bar) return;
+  findMode = mode;
+  bar.hidden = false;
+  const $ = (id) => document.getElementById(id);
+  const replaceRow = mode === "replace";
+  const gotoRow = mode === "goto";
+  for (const id of ["replace-input", "replace-one", "replace-all"]) $(id).hidden = !replaceRow;
+  $("goto-input").hidden = !gotoRow;
+  for (const id of ["find-input", "find-count", "find-prev", "find-next"]) $(id).hidden = gotoRow;
+  if (gotoRow) {
+    $("goto-input").focus();
+    return;
+  }
+  const sel = editor.state.selection.main;
+  if (!sel.empty) {
+    const text = editor.state.sliceDoc(sel.from, sel.to);
+    if (!text.includes("\n")) $("find-input").value = text;
+  }
+  $("find-input").focus();
+  $("find-input").select();
+  runFind($("find-input").value);
+}
+
+function closeFind() {
+  const bar = document.querySelector(".findbar");
+  if (bar) bar.hidden = true;
+  findState.query = "";
+  findState.matches = [];
+  findState.index = -1;
+  editor.dispatch({ effects: setFindEffect.of([]) });
+  editor.focus();
+}
+
+function runFind(query) {
+  findState.query = query;
+  const text = editor.state.doc.toString().toLowerCase();
+  const q = query.toLowerCase();
+  const matches = [];
+  if (q) {
+    for (let i = text.indexOf(q); i !== -1 && matches.length < 5000; i = text.indexOf(q, i + q.length)) {
+      matches.push({ from: i, to: i + q.length });
+    }
+  }
+  findState.matches = matches;
+  const head = editor.state.selection.main.head;
+  const near = matches.findIndex((m) => m.from >= head);
+  findState.index = matches.length ? (near === -1 ? 0 : near) : -1;
+  editor.dispatch({ effects: setFindEffect.of(matches) });
+  selectCurrentMatch();
+  updateFindCount();
+}
+
+function selectCurrentMatch() {
+  const m = findState.matches[findState.index];
+  if (m) editor.dispatch({ selection: { anchor: m.from, head: m.to }, scrollIntoView: true });
+}
+
+function moveFind(step) {
+  const n = findState.matches.length;
+  if (!n) return;
+  findState.index = (findState.index + step + n) % n;
+  selectCurrentMatch();
+  updateFindCount();
+}
+
+function updateFindCount() {
+  const n = findState.matches.length;
+  const el = document.getElementById("find-count");
+  if (el) el.textContent = n ? `${findState.index + 1} / ${n}` : "0";
+}
+
+function replaceOne() {
+  const m = findState.matches[findState.index];
+  if (!m) return;
+  const sel = editor.state.selection.main;
+  const replacement = document.getElementById("replace-input").value;
+  if (sel.from === m.from && sel.to === m.to) {
+    editor.dispatch({ changes: { from: m.from, to: m.to, insert: replacement } });
+  }
+  runFind(findState.query);
+}
+
+function replaceAll() {
+  const replacement = document.getElementById("replace-input").value;
+  const changes = findState.matches.map((m) => ({ from: m.from, to: m.to, insert: replacement }));
+  if (changes.length) editor.dispatch({ changes });
+  runFind(findState.query);
+}
+
+// ---- Colour theme -----------------------------------------------------------------------------
+function initialTheme() {
+  try {
+    const saved = localStorage.getItem("asili-theme");
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {
+    // Storage unavailable: follow the system.
+  }
+  return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function toggleTheme() {
+  const light = !document.body.classList.contains("theme-light");
+  document.body.classList.toggle("theme-light", light);
+  try {
+    localStorage.setItem("asili-theme", light ? "light" : "dark");
+  } catch {
+    // The choice is kept for this visit only.
+  }
+  editor.dispatch({ effects: themeCell.reconfigure(light ? [] : oneDark) });
+}
+
+// ---- Paste from the clipboard ----------------------------------------------------------------
+async function pasteFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    editor.focus();
+    editor.dispatch(editor.state.replaceSelection(text));
+  } catch {
+    note(T.error, "error");
+  }
+}
 
 // ---- Start ----------------------------------------------------------------------------------
 stopBtn.hidden = true;

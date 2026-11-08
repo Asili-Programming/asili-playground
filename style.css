@@ -392,3 +392,11 @@ body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
 /* ---- Undo notice --------------------------------------------------------------------------- */
 .undo-note { display: flex; align-items: center; gap: 0.6rem; margin: 0 0.9rem 0.5rem; font-size: 0.8rem; color: var(--muted); }
 .undo-note button { font-size: 0.75rem; padding: 0.15rem 0.45rem; }
+
+/* ---- Tab row: the open files, and icons at its right end ------------------------------------ */
+.tabbar { display: flex; align-items: stretch; flex: none; background: var(--panel); border-bottom: 1px solid var(--border); }
+.tabbar .doc-tabs { flex: 1 1 auto; min-width: 0; border-bottom: 0; }
+.tabbar-end { display: flex; align-items: center; gap: 0.2rem; padding: 0 0.4rem; border-left: 1px solid var(--border); flex: none; }
+.tab-end-btn { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.tab-end-btn:hover { background: var(--hover); color: var(--text); }
+.tab-end-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -24,6 +24,7 @@ const registry = {
   menus: new Map(),
   toolbar: new Map(),
   activity: new Map(),
+  tabEnd: new Map(),
   sections: { primary: new Map(), secondary: new Map() },
   panels: new Map(),
   status: new Map(),
@@ -47,6 +48,9 @@ export function setBrand(next) { brand = { ...brand, ...next }; }
 
 // menu: { id, label (string-table key), order, items: [{ id, label, run, enabled?, optional? }] }
 export function addMenu(menu) { add(registry.menus, menu, "menu"); }
+
+// icon at the right end of the tab row: { id, title (key or text), icon (SVG markup), order, run }
+export function addTabEndItem(item) { add(registry.tabEnd, item, "tab row item"); }
 
 // activity bar button (the far-left strip): { id, title (key), icon, order, run, enabled? }
 export function addActivity(item) { add(registry.activity, item, "activity item"); }
@@ -132,8 +136,19 @@ export function renderShell(root, { t, embed = false }) {
   workbench.append(splitter("primary"));
 
   const main = el("section", { id: "editor-pane", class: "main", "aria-label": t("editor") });
+  // The tab row: the open files, then icons at its right end (the language switch).
+  const tabbar = el("div", { class: "tabbar" });
+  tabbar.append(el("div", { id: "doc-tabs", class: "doc-tabs", role: "tablist", "aria-label": t("openFiles") }));
+  const tabEnd = el("div", { class: "tabbar-end" });
+  for (const item of [...registry.tabEnd.values()].filter(keep).sort(byOrder)) {
+    const button = el("button", { id: item.id, class: "tab-end-btn", title: t(item.title), "aria-label": t(item.title) });
+    button.innerHTML = item.icon ?? "";
+    button.addEventListener("click", () => item.run?.());
+    tabEnd.append(button);
+  }
+  tabbar.append(tabEnd);
   main.append(
-    el("div", { id: "doc-tabs", class: "doc-tabs", role: "tablist", "aria-label": t("openFiles") }),
+    tabbar,
     el("div", { id: "notice", class: "notice", role: "alert", hidden: true }),
     el("div", { id: "editor" }),
   );

@@ -71,7 +71,7 @@ self.addEventListener("message", async (e) => {
       const json = modules
         ? glue.checkWithModules(e.data.source, modules)
         : glue.check(e.data.source);
-      send({ type: "diag", seq: e.data.seq, json });
+      send({ type: "diag", seq: e.data.seq, key: e.data.key, json });
     } catch {
       // Ignored: the editor keeps its previous marks.
     }
