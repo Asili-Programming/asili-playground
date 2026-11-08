@@ -6,6 +6,7 @@ import { encodeShare, decodeShare } from "./share.js";
 import {
   ENTRY, newProject, newId, projectFromSample, addFile, deleteFile, fileStatus, importProject,
   exportProject, loadProjects, saveProjects, uniqueName, bundleOf, moduleOf, renameFile, ProjectError,
+  foldersOf, folderOf, renameFolder, deleteFolder, moveFile, addFolder,
 } from "./project.js";
 import {
   addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
@@ -78,7 +79,7 @@ const STRINGS = {
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
-    lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
+    newFolder: "Folda mpya", lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
     title: "Asili — Playground",
@@ -129,7 +130,7 @@ const STRINGS = {
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
-    lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
+    newFolder: "New folder", lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
 const T = STRINGS[lang];
@@ -357,7 +358,7 @@ addStatusItem({ id: "state", order: 10, render(slot) {
   slot.setAttribute("aria-live", "polite");
 } });
 addStatusItem({ id: "cursor", order: 20, render(slot) { slot.id = "cursor-pos"; } });
-addStatusItem({ id: "file", order: 30, render(slot) { slot.id = "file-name"; } });
+addStatusItem({ id: "file", order: 30, render(slot) { slot.id = "status-file"; } });
 addStatusItem({ id: "language", order: 40, render(slot, t) { slot.id = "status-language"; slot.textContent = t("lang") + ": Asili"; } });
 addStatusItem({ id: "problems", order: 50, render(slot) {
   slot.id = "status-problems";
@@ -1078,6 +1079,272 @@ async function importFile(file) {
 }
 
 // ---- Files: create, delete, and their status --------------------------------------------------
+// ---- Explorer tree: folders, files, icons ---------------------------------------------------------
+const TREE_ICON = (body, cls) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="ico ${cls}" aria-hidden="true">${body}</svg>`;
+const CHEVRON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="chev" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+const FOLDER_ICON = TREE_ICON('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', "ico-folder");
+const DOC_BODY = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>';
+// The icon of a file by its kind: Asili, Markdown, configuration, lock, or a generic file.
+function fileIcon(file) {
+  const name = file.split("/").pop();
+  if (name.endsWith(".as")) return TREE_ICON(DOC_BODY, "ico-as");
+  if (name.endsWith(".md")) return TREE_ICON(DOC_BODY, "ico-md");
+  if (/\.(toml|json|ya?ml)$/.test(name)) return TREE_ICON('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>', "ico-config");
+  if (name.endsWith(".lock")) return TREE_ICON('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', "ico-lock");
+  return TREE_ICON(DOC_BODY, "ico-file");
+}
+
+const treeOpen = new Set(loadTreeOpen());
+function loadTreeOpen() {
+  try {
+    return JSON.parse(localStorage.getItem("asili-tree-v1") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+function saveTreeOpen() {
+  try {
+    localStorage.setItem("asili-tree-v1", JSON.stringify([...treeOpen]));
+  } catch {
+    // The open folders are kept for this visit only.
+  }
+}
+
+// The workspace as nested folders and files: { folders: Map(name -> node), files: [file paths] }.
+function buildTree(p) {
+  const root = { folders: new Map(), files: [] };
+  const nodeAt = (path) => {
+    let n = root;
+    for (const part of path.split("/").filter(Boolean)) {
+      if (!n.folders.has(part)) n.folders.set(part, { folders: new Map(), files: [] });
+      n = n.folders.get(part);
+    }
+    return n;
+  };
+  for (const folder of foldersOf(p)) nodeAt(folder);
+  for (const file of Object.keys(p.files)) {
+    const folder = folderOf(file);
+    (folder ? nodeAt(folder) : root).files.push(file);
+  }
+  return root;
+}
+
+// One row per visible item, indented by depth. Folders first, then files, each sorted by name.
+function renderTreeLevel(p, node, path, depth, list) {
+  for (const name of [...node.folders.keys()].sort()) {
+    const folder = path ? `${path}/${name}` : name;
+    const open = treeOpen.has(`${p.id}:${folder}`);
+    const li = document.createElement("li");
+    li.className = "tree-row folder";
+    li.dataset.folder = folder;
+    li.setAttribute("aria-expanded", String(open));
+    li.style.paddingLeft = `${0.4 + depth * 0.9}rem`;
+    li.draggable = true;
+    li.innerHTML = CHEVRON + FOLDER_ICON;
+    const label = document.createElement("span");
+    label.className = "tree-name";
+    label.textContent = name;
+    li.append(label);
+    li.addEventListener("click", () => {
+      if (open) treeOpen.delete(`${p.id}:${folder}`);
+      else treeOpen.add(`${p.id}:${folder}`);
+      saveTreeOpen();
+      renderFiles();
+    });
+    li.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showFolderMenu(e.clientX, e.clientY, p, folder);
+    });
+    attachTreeDrop(li, p, folder);
+    list.append(li);
+    if (open) renderTreeLevel(p, node.folders.get(name), folder, depth + 1, list);
+  }
+  for (const file of [...node.files].sort()) {
+    const li = fileRow(p, file, depth);
+    list.append(li);
+  }
+}
+
+function fileRow(p, file, depth) {
+  const li = document.createElement("li");
+  const open = docs.find((x) => x.key === `p:${p.id}:${file}`);
+  li.className = "tree-row file";
+  li.dataset.file = file;
+  li.setAttribute("aria-current", String(open !== undefined && open === activeDoc));
+  li.style.paddingLeft = `${0.4 + depth * 0.9 + 0.9}rem`;
+  li.draggable = true;
+  li.innerHTML = fileIcon(file);
+  const label = document.createElement("span");
+  label.className = "tree-name";
+  label.textContent = moduleOf(file) + ".as";
+  label.title = file;
+  const meta = document.createElement("span");
+  meta.className = "file-meta";
+  const status = fileStatus(p, file, liveText(p, file)) === "modified" ? T.stModified : T.stSaved;
+  meta.textContent = `${status}${open?.error ? ` · ${T.stErrors}` : ""}`;
+  if (file === ENTRY) label.classList.add("entry");
+  li.append(label, meta);
+  li.addEventListener("click", () => openProjectFile(p, file));
+  li.addEventListener("dblclick", () => startRename(p, file, li));
+  li.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    showFileMenu(e.clientX, e.clientY, p, file, li);
+  });
+  li.addEventListener("dragstart", (e) => {
+    e.dataTransfer.setData("application/x-asili-file", file);
+    e.dataTransfer.effectAllowed = "move";
+  });
+  return li;
+}
+
+// Drop a file on a folder to move it into that folder.
+function attachTreeDrop(li, p, folder) {
+  li.addEventListener("dragover", (e) => {
+    if (![...e.dataTransfer.types].includes("application/x-asili-file")) return;
+    e.preventDefault();
+    li.classList.add("drop-target");
+  });
+  li.addEventListener("dragleave", () => li.classList.remove("drop-target"));
+  li.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.getData("application/x-asili-file");
+    li.classList.remove("drop-target");
+    if (!file) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveFileTo(p, file, folder);
+  });
+}
+
+function moveFileTo(p, file, folder) {
+  try {
+    const next = moveFile(p, file, folder);
+    if (next === file) return;
+    for (const d of docs.filter((x) => x.key === `p:${p.id}:${file}`)) {
+      d.key = `p:${p.id}:${next}`;
+      d.file = next;
+      d.name = next;
+    }
+    persistProjects();
+    renderTabs();
+  } catch (e) {
+    note(errText(e), "error");
+  }
+}
+
+// Folder operations: New file, New folder, Rename, Delete (the second click confirms).
+function showFolderMenu(x, y, p, folder) {
+  fileMenu?.remove();
+  const menu = document.createElement("div");
+  menu.className = "file-menu";
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  const add = (label, run, armedLabel) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      if (armedLabel && b.dataset.armed !== "yes") {
+        b.dataset.armed = "yes";
+        b.textContent = armedLabel;
+        return;
+      }
+      menu.remove();
+      fileMenu = null;
+      run();
+    });
+    menu.append(b);
+  };
+  add(T.newFile, () => newItemIn(p, folder, "file"));
+  add(T.newFolder, () => newItemIn(p, folder, "folder"));
+  add(T.rename, () => startFolderRename(p, folder));
+  add(T.delete, () => removeFolder(p, folder), T.confirmDelete);
+  document.body.append(menu);
+  fileMenu = menu;
+  const dismiss = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      fileMenu = null;
+      document.removeEventListener("pointerdown", dismiss);
+    }
+  };
+  document.addEventListener("pointerdown", dismiss);
+}
+
+// A new file or folder inside `folder`, named by the first free name, and opened for renaming.
+function newItemIn(p, folder, kind) {
+  treeOpen.add(`${p.id}:${folder}`);
+  saveTreeOpen();
+  const base = kind === "file" ? "bila_jina" : "folda";
+  let n = 1;
+  const taken = (name) => (kind === "file" ? `${name}.as` in p.files : foldersOf(p).includes(name));
+  while (taken(folder ? `${folder}/${base}_${n}` : `${base}_${n}`)) n += 1;
+  const name = `${base}_${n}`;
+  const path = folder ? `${folder}/${name}` : name;
+  try {
+    if (kind === "file") addFile(p, path, "");
+    else addFolder(p, path);
+    persistProjects();
+    if (kind === "file") openProjectFile(p, `${path}.as`);
+    renderFiles();
+  } catch (e) {
+    note(errText(e), "error");
+  }
+}
+
+function startFolderRename(p, folder) {
+  const li = document.querySelector(`.tree-row.folder[data-folder="${CSS.escape(folder)}"] .tree-name`);
+  if (!li) return;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "file-rename";
+  input.value = folder.split("/").pop();
+  input.setAttribute("aria-label", T.rename);
+  li.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    if (commit) {
+      try {
+        const next = renameFolder(p, folder, input.value.trim());
+        for (const d of docs.filter((x) => x.projectId === p.id && x.file.startsWith(`${folder}/`))) {
+          d.file = next + d.file.slice(folder.length);
+          d.key = `p:${p.id}:${d.file}`;
+          d.name = d.file;
+        }
+        treeOpen.delete(`${p.id}:${folder}`);
+        treeOpen.add(`${p.id}:${next}`);
+        saveTreeOpen();
+        persistProjects();
+      } catch (e) {
+        note(errText(e), "error");
+      }
+    }
+    renderTabs();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener("blur", () => finish(false));
+}
+
+function removeFolder(p, folder) {
+  const inside = Object.keys(p.files).filter((f) => f.startsWith(`${folder}/`));
+  try {
+    deleteFolder(p, folder);
+  } catch (e) {
+    note(errText(e), "error");
+    return;
+  }
+  for (const d of docs.filter((x) => x.projectId === p.id && inside.includes(x.file))) closeDoc(d, { force: true });
+  persistProjects();
+  renderTabs();
+  note(`${folder}: ${T.deleted}`, "ok");
+}
+
 function createFileFromInput() {
   const p = activeProject();
   const input = document.getElementById("file-name");
@@ -1111,35 +1378,7 @@ function renderFiles() {
   const p = activeProject();
   list.replaceChildren();
   if (!p) return;
-  for (const file of Object.keys(p.files)) {
-    const li = document.createElement("li");
-    const open = docs.find((x) => x.key === `p:${p.id}:${file}`);
-    const status = fileStatus(p, file, liveText(p, file)) === "modified" ? T.stModified : T.stSaved;
-    li.dataset.file = file;
-    li.setAttribute("aria-current", String(open !== undefined && open === activeDoc));
-    const name = document.createElement("span");
-    name.textContent = file;
-    name.title = file;
-    name.addEventListener("click", () => openProjectFile(p, file));
-    name.addEventListener("dblclick", () => startRename(p, file, li));
-    const meta = document.createElement("span");
-    meta.className = "file-meta";
-    meta.textContent = `${status}${open?.error ? ` · ${T.stErrors}` : ""}`;
-    li.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      showFileMenu(e.clientX, e.clientY, p, file, li);
-    });
-    li.append(name, meta);
-    if (file !== ENTRY) {
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "file-delete";
-      del.textContent = T.deleteFile;
-      del.addEventListener("click", () => deleteProjectFile(p, file, del));
-      li.append(del);
-    }
-    list.append(li);
-  }
+  renderTreeLevel(p, buildTree(p), "", 0, list);
   if (Object.keys(p.files).length === 0) {
     const none = document.createElement("li");
     none.className = "none";
@@ -1217,7 +1456,7 @@ function updateCursor(state) {
   const head = state.selection.main.head;
   const line = state.doc.lineAt(head);
   document.getElementById("cursor-pos").textContent = `Ln ${line.number}, Col ${head - line.from + 1}`;
-  document.getElementById("file-name").textContent = activeDoc?.name ?? "";
+  document.getElementById("status-file").textContent = activeDoc?.name ?? "";
 }
 
 // Share: the program goes into the link's fragment (see share.js), so the server never sees it.
@@ -1435,7 +1674,7 @@ function removeFile(p, file) {
 }
 
 function startRename(p, file, li) {
-  const old = li.querySelector("span");
+  const old = li.querySelector(".tree-name") ?? li.querySelector("span");
   const input = document.createElement("input");
   input.type = "text";
   input.className = "file-rename";
@@ -1474,11 +1713,12 @@ function startRename(p, file, li) {
 }
 
 function duplicateFile(p, file) {
+  const folder = folderOf(file);
   const base = `${moduleOf(file)}_kopi`;
   let name = base;
-  for (let n = 2; `${name}.as` in p.files; n++) name = `${base}_${n}`;
+  for (let n = 2; `${folder ? `${folder}/` : ""}${name}.as` in p.files; n++) name = `${base}_${n}`;
   try {
-    const next = addFile(p, name, p.files[file]);
+    const next = addFile(p, folder ? `${folder}/${name}` : name, p.files[file]);
     persistProjects();
     openProjectFile(p, next);
     renderFiles();

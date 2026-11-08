@@ -445,3 +445,27 @@ body.theme-light .cm-editor { background: var(--bg); color: var(--text); }
 .bottom-panel .tab-icon { display: none; }
 .bottom-panel .tab-text { display: inline; }
 .sidebar .problem-count { position: absolute; top: 0; right: 0; font-size: 0.6rem; }
+
+/* ---- Explorer tree (docs/06-projects.md, "The Explorer tree") ------------------------------- */
+#file-list { list-style: none; margin: 0; padding: 0.2rem 0; }
+#file-list .tree-row {
+  display: flex; align-items: center; gap: 0.4rem; min-height: 1.6rem; padding-right: 0.6rem; cursor: pointer;
+  font-family: "Segoe UI", system-ui, sans-serif; font-size: 0.82rem; white-space: nowrap; color: var(--text);
+}
+#file-list .tree-row:hover { background: var(--hover); }
+#file-list .tree-row[aria-current="true"] { background: var(--hover); color: var(--accent); }
+#file-list .tree-row.drop-target { box-shadow: inset 0 0 0 1px var(--accent); }
+#file-list .tree-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+#file-list .tree-name.entry { font-weight: 600; }
+#file-list .chev { flex: none; transition: transform 0.12s; color: var(--muted); }
+#file-list .folder[aria-expanded="true"] > .chev { transform: rotate(90deg); }
+#file-list .file > .chev, #file-list .folder .file-meta { display: none; }
+#file-list .ico { flex: none; color: var(--muted); }
+#file-list .ico-folder { color: #d9a441; }
+#file-list .ico-as { color: var(--accent); }
+#file-list .ico-md { color: #6fa8dc; }
+#file-list .ico-config { color: #9aa2b5; }
+#file-list .ico-lock { color: #c9a227; }
+#file-list .file-meta { font-size: 0.7rem; color: var(--muted); flex: none; }
+#file-list .file-delete { display: none; }
+body.theme-light #file-list .ico-folder { color: #b7791f; }
