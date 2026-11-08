@@ -238,6 +238,18 @@ body { margin: 0; overflow: hidden; }
 .doc-tabs {
   display: flex; flex: none; overflow-x: auto; background: var(--panel); border-bottom: 1px solid var(--border);
 }
+/* The tab row's scrollbar is slim and shows only while the row is in use: under the pointer, focused,
+   or scrolling (main.js adds .scrolling). Otherwise its track and thumb are transparent. */
+.doc-tabs { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color 0.2s; }
+.doc-tabs::-webkit-scrollbar { height: 4px; }
+.doc-tabs::-webkit-scrollbar-track { background: transparent; }
+.doc-tabs::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; }
+.doc-tabs:hover, .doc-tabs:focus-within, .doc-tabs.scrolling { scrollbar-color: #4a5263 transparent; }
+.doc-tabs:hover::-webkit-scrollbar-thumb, .doc-tabs:focus-within::-webkit-scrollbar-thumb,
+.doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #4a5263; }
+body.theme-light .doc-tabs:hover, body.theme-light .doc-tabs:focus-within, body.theme-light .doc-tabs.scrolling { scrollbar-color: #b8bfca transparent; }
+body.theme-light .doc-tabs:hover::-webkit-scrollbar-thumb, body.theme-light .doc-tabs:focus-within::-webkit-scrollbar-thumb,
+body.theme-light .doc-tabs.scrolling::-webkit-scrollbar-thumb { background: #b8bfca; }
 .doc-tab {
   display: flex; flex: none; align-items: center; gap: 6px; padding: 0.4rem 0.7rem; border-right: 1px solid var(--border);
   cursor: pointer; font-family: ui-monospace, monospace; font-size: 0.85rem; color: var(--muted); white-space: nowrap;

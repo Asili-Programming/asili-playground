@@ -830,6 +830,15 @@ minimapEl.addEventListener("pointermove", (e) => { if (minimapDrag) scrollToMini
 minimapEl.addEventListener("pointerup", () => { minimapDrag = false; });
 minimapEl.addEventListener("pointercancel", () => { minimapDrag = false; });
 editor.scrollDOM.addEventListener("scroll", updateMinimapView, { passive: true });
+
+// The tab row's scrollbar shows while the row scrolls (CSS shows it on hover and focus too).
+const docTabsEl = document.getElementById("doc-tabs");
+let tabsScrollTimer = null;
+docTabsEl?.addEventListener("scroll", () => {
+  docTabsEl.classList.add("scrolling");
+  clearTimeout(tabsScrollTimer);
+  tabsScrollTimer = setTimeout(() => docTabsEl.classList.remove("scrolling"), 900);
+}, { passive: true });
 window.addEventListener("resize", scheduleMinimap);
 new ResizeObserver(scheduleMinimap).observe(minimapEl);
 
