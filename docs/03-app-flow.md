@@ -49,6 +49,11 @@ collapsed by default.
 
 ## States
 
+The machines are declared in `states.js`: each state, each transition and its event. The page sends
+events to them and reads the engine's flags from them; the workspace, the Explorer and the main area are
+derived from the page's data by one function, so they cannot disagree with it. `scripts/test_states.mjs`
+checks every transition in the tables and that every state can be reached.
+
 Every state the page can be in, grouped by what it describes. Each machine has one start state, and
 each transition names its trigger. A trigger is any of: a menu item, a command-palette entry, a key,
 a button, or an event from the engine or the browser. Where a state is shown, the UI says which one

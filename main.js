@@ -15,6 +15,7 @@ import {
 import { registerCommand, runCommand, installKeys, openPalette, openList } from "./commands.js";
 import { saveSession, loadSession } from "./session.js";
 import { initSettings, defineToggle, setToggle, toggleSetting, isOn, onToggleChange } from "./settings.js";
+import { MACHINES, createMachine, deriveStates } from "./states.js";
 import {
   EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter,
   EditorState, defaultKeymap, history, historyKeymap, indentWithTab,
@@ -532,6 +533,7 @@ let checkTimer = null;
 
 function requestCheck() {
   if (!engineReady || !worker) return;
+  checks.send("edit");
   // The workspace file is JSON, not Asili: it has no diagnostics.
   if (activeDoc && isConfig(activeDoc.file ?? "")) {
     renderProblems([]);
@@ -754,8 +756,17 @@ function appendOutput(text, isErr) {
 // Each run goes to a worker. Stop terminates that worker, which ends any run in progress; the
 // next run starts a fresh worker and loads the engine again (the browser caches the file).
 let worker = null;
+// The engine's state machine (states.js). engineReady and busy are read from it, never set directly.
 let engineReady = false;
 let busy = false;
+const engine = createMachine("engine", MACHINES.engine, (state) => {
+  engineReady = state === "ready" || state === "running";
+  busy = state === "running";
+  runBtn.hidden = busy;
+  stopBtn.hidden = !busy;
+  refreshMenus();
+});
+const checks = createMachine("check", MACHINES.check);
 
 function showState(state, message) {
   // state: "loading" | "ready" | "failed" | "unsupported" | "running"
@@ -775,7 +786,7 @@ function showState(state, message) {
 function onWorkerMessage(e) {
   const m = e.data;
   if (m.type === "ready") {
-    engineReady = true;
+    engine.send("loaded");
     showState("ready");
     setStatus(T.ready, "ok");
     refreshMenus();
@@ -809,6 +820,7 @@ function onWorkerMessage(e) {
     }
   } else if (m.type === "diag") {
     if (m.seq !== checkSeq) return;
+    checks.send("answer");
     try {
       const items = JSON.parse(m.json);
       renderProblems(items);
@@ -816,12 +828,14 @@ function onWorkerMessage(e) {
       // A malformed result only means no marks; the run still reports errors in the output.
     }
   } else if (m.type === "done") {
+    engine.send("done");
     finishRun(T.done, "ok");
   } else if (m.type === "error") {
+    engine.send("error");
     appendOutput(m.message, true);
     finishRun(T.error, "error");
   } else if (m.type === "loadfail") {
-    engineReady = false;
+    engine.send("fail");
     showState("failed", `${T.loadFailed}: ${m.message}`);
     setStatus(T.error, "error");
     worker = null;
@@ -830,7 +844,9 @@ function onWorkerMessage(e) {
 
 function startEngine() {
   if (worker) worker.terminate();
-  engineReady = false;
+  // From Ready or Failed the engine is loaded again; from Loading (after Stop) nothing is sent.
+  if (engine.is("failed")) engine.send("retry");
+  else if (engine.is("ready")) engine.send("restart");
   showState("loading", T.loading);
   setStatus(T.loading);
   worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
@@ -839,9 +855,6 @@ function startEngine() {
 }
 
 function finishRun(text, kind) {
-  busy = false;
-  runBtn.hidden = false;
-  stopBtn.hidden = true;
   notice.hidden = true;
   refreshMenus();
   setStatus(text, kind);
@@ -849,13 +862,9 @@ function finishRun(text, kind) {
 }
 
 function run() {
-  if (!engineReady || busy || !activeDoc) return;
-  busy = true;
+  if (!activeDoc || !engine.send("run")) return;
   outputEl.textContent = "";
-  refreshMenus();
   resetBoard();
-  runBtn.hidden = true;
-  stopBtn.hidden = false;
   stopBtn.disabled = false;
   setStatus(T.running);
   // The sample's scripted pin levels (manifest `inputs`), flattened to saa, pini, hali triples.
@@ -873,14 +882,10 @@ function run() {
 }
 
 function stop() {
-  if (!busy) return;
+  if (!engine.send("stop")) return;
   worker.terminate();
   worker = null;
-  busy = false;
   appendOutput(T.stopped, true);
-  refreshMenus();
-  runBtn.hidden = false;
-  stopBtn.hidden = true;
   setStatus(T.stopped, "error");
   startEngine();
 }
@@ -1719,6 +1724,21 @@ function showRootMenu(x, y, p, li) {
   };
   document.addEventListener("pointerdown", dismiss);
 }
+// The derived states (workspace, Explorer, main area), read from the page's data by states.js.
+const derived = {};
+const workspaceMachine = createMachine("workspace", MACHINES.workspace);
+function syncStates() {
+  const p = activeProject();
+  const d = deriveStates({
+    workspace: p, openFiles: docs, activeFile: activeDoc,
+    dirty: p ? workspaceDirty(p) : false,
+  });
+  workspaceMachine.setDerived(d.workspace);
+  derived.explorer = d.explorer;
+  derived.mainArea = d.mainArea;
+  refreshMenus();
+}
+
 function renderFiles() {
   const list = document.getElementById("file-list");
   if (!list) return;
@@ -1730,6 +1750,7 @@ function renderFiles() {
     const b = document.getElementById(id);
     if (b) b.disabled = !p;
   }
+  syncStates();
   if (!p) {
     // No workspace: say so, and offer the ways to get one (as VS Code's Explorer does).
     const box = document.createElement("li");
@@ -2472,6 +2493,7 @@ stopBtn.hidden = true;
 refreshMenus();
 resetBoard();
 if (typeof WebAssembly === "undefined" || typeof Worker === "undefined") {
+  engine.setDerived("unsupported");
   showState("unsupported", T.unsupported);
   setStatus(T.error, "error");
 } else {
