@@ -47,7 +47,8 @@ stay read-only; a sample can be saved as a project to edit it.
   last save). A file with errors from `check` shows the error count. The editor tab shows the same:
   a dot for errors, and an italic name for unsaved changes.
 - **Save** (Ctrl+S, or Faili > Hifadhi) writes the project to storage and marks its files saved.
-  Closing a modified tab asks before dropping the change.
+  Each tab has a × button. Closing a modified tab (its ×, Ctrl+W, or Faili > Funga kichupo) first
+  shows a warning; a second close drops the unsaved change. Closing the last tab opens the first sample.
 
 ## Running a project
 
