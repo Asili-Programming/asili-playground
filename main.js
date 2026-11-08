@@ -11,7 +11,7 @@ import {
 } from "./project.js";
 import {
   addMenu, addToolbarItem, addTabEndItem, addSidebarSection, addPanel, addStatusItem, addActivity, renderShell, setBrand,
-  showPanel, showView, setRegionVisible, regionVisible, refreshMenus, menuViews,
+  showPanel, showView, setRegionVisible, regionVisible, refreshMenus, menuViews, closeSheets,
 } from "./layout.js";
 import { registerCommand, runCommand, installKeys, openPalette, openList } from "./commands.js";
 import { saveSession, loadSession } from "./session.js";
@@ -1715,7 +1715,8 @@ function fileRow(p, file, depth) {
   if (file === ENTRY) label.classList.add("entry");
   if (isConfig(file)) li.classList.add("config");
   li.append(label, meta);
-  li.addEventListener("click", () => openProjectFile(p, file));
+  // On a phone the explorer is a sheet: opening a file shows the editor.
+  li.addEventListener("click", () => { openProjectFile(p, file); closeSheets(); });
   li.addEventListener("dblclick", () => startRename(p, file, li));
   li.addEventListener("contextmenu", (e) => {
     e.preventDefault();

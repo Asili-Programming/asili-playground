@@ -186,6 +186,7 @@ export function renderShell(root, { t, embed = false }) {
   applyStoredSizes();
   createViews(keep, t);
   placeViews();
+  renderMobileNav(t);
   // Dropping a view on the editor area puts it in the bottom panel.
   const area = document.getElementById("editor-pane");
   area.addEventListener("dragover", (e) => { if (hasView(e)) e.preventDefault(); });
@@ -523,6 +524,7 @@ export function showView(id, { remember = true } = {}) {
     pane.hidden = pane !== n.pane;
   }
   if (remember) saveViewState();
+  updateMobileNav();
 }
 
 // The views' places and the selected view of each region, kept in the browser.
@@ -560,6 +562,7 @@ export function setRegionVisible(region, visible) {
   if (regionMachines[region]) syncRegion(region);
   // A sheet (phone layout) is open while any of the three regions is shown; the scrim follows it.
   ide?.classList.toggle("sheet-open", REGIONS.some((r) => regionVisible(r)));
+  updateMobileNav();
 }
 
 export function regionVisible(region) {
@@ -587,4 +590,54 @@ export function refreshMenus() {
 // Mark a status item or sidebar section hidden without removing it.
 export function setSectionHidden(side, id, hidden) {
   document.getElementById(`section-${id}`)?.toggleAttribute("hidden", hidden);
+}
+
+// ---- The phone's navigation bar (under 720 px) ---------------------------------------------------
+// On a phone the views have no activity bar or menu buttons in reach, so a bar at the bottom holds the
+// editor and the views: each button shows its view (as a sheet), and "Editor" closes the sheets.
+const phoneQuery = matchMedia("(max-width: 719px)");
+const EDITOR_NAV_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>';
+
+// Close every sheet (phone only): the editor is then in full view.
+export function closeSheets() {
+  if (!phoneQuery.matches) return;
+  for (const region of REGIONS) {
+    if (hasToggle(region)) setToggle(region, false);
+    else setRegionVisible(region, false);
+  }
+}
+
+function renderMobileNav(t) {
+  const nav = el("nav", { class: "mobile-nav", id: "mobile-nav", "aria-label": t("editor") });
+  const editorBtn = el("button", { type: "button", class: "mobile-nav-btn", "data-mobile": "editor", "aria-label": t("editor") });
+  editorBtn.innerHTML = EDITOR_NAV_ICON;
+  editorBtn.append(el("span", { class: "mobile-nav-text" }, t("editor")));
+  editorBtn.addEventListener("click", () => closeSheets());
+  nav.append(editorBtn);
+  for (const id of ["files", "board", "output", "problems"]) {
+    const view = registry.views.get(id);
+    if (!view) continue;
+    const button = el("button", { type: "button", class: "mobile-nav-btn", "data-mobile": id, "aria-label": t(view.title) });
+    button.innerHTML = view.icon ?? "";
+    button.append(el("span", { class: "mobile-nav-text" }, t(view.title)));
+    button.addEventListener("click", () => showView(id));
+    nav.append(button);
+  }
+  document.querySelector(".ide")?.append(nav);
+  updateMobileNav();
+}
+
+// A view's button is marked while its view is the one shown in a visible region; "Editor" while none is.
+function updateMobileNav() {
+  const nav = document.getElementById("mobile-nav");
+  if (!nav) return;
+  let anyShown = false;
+  for (const button of nav.querySelectorAll("[data-mobile]")) {
+    const id = button.dataset.mobile;
+    const n = viewNodes.get(id);
+    const shown = !!n && regionVisible(n.region) && n.tab.getAttribute("aria-selected") === "true";
+    if (shown) anyShown = true;
+    button.setAttribute("aria-current", String(shown));
+  }
+  nav.querySelector('[data-mobile="editor"]')?.setAttribute("aria-current", String(!anyShown));
 }
