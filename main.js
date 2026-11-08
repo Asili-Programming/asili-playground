@@ -79,7 +79,9 @@ const STRINGS = {
     errProjectTooBig: "Nafasi ya kazi ni kubwa mno", errNameTaken: "Jina hili la moduli tayari lipo",
     errFolderExists: "Folda tayari ipo", errTooManyFolders: "Idadi ya folda imefikiwa",
     errFolderMissing: "Folda haipo", errEntryMove: "kuu.as haiwezi kuhamishwa",
-    newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
+    newFolder: "Folda mpya", collapseAll: "Funga folda zote", notifications: "Arifa", lang: "Lugha",
+    menuTools: "Zana", lintFile: "Kagua faili", formatted: "Msimbo umepangwa", formatUnchanged: "Msimbo uko sawa tayari",
+    lintClean: "Hakuna makosa ya kukagua", closeOthers: "Funga zingine", closeRight: "Funga za kulia", stFiles: "mafaili",
   },
   en: {
     title: "Asili — Playground",
@@ -130,7 +132,9 @@ const STRINGS = {
     errProjectTooBig: "The workspace is too large", errNameTaken: "A module with this name already exists",
     errFolderExists: "The folder already exists", errTooManyFolders: "The folder limit has been reached",
     errFolderMissing: "Folder not found", errEntryMove: "kuu.as cannot be moved",
-    newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
+    newFolder: "New folder", collapseAll: "Collapse folders", notifications: "Notifications", lang: "Language",
+    menuTools: "Tools", lintFile: "Lint file", formatted: "Code formatted", formatUnchanged: "Code is already formatted",
+    lintClean: "No lint findings", closeOthers: "Close others", closeRight: "Close to the right", stFiles: "files",
   },
 };
 const T = STRINGS[lang];
@@ -185,6 +189,10 @@ registerCommand({ id: "edit.copy", title: "Copy", run: () => { editor.focus(); d
 registerCommand({ id: "edit.paste", title: "Paste", run: () => pasteFromClipboard() });
 registerCommand({ id: "edit.selectAll", title: "Select all", run: () => selectAll(editor) });
 registerCommand({ id: "view.theme", title: "Toggle colour theme", run: () => toggleTheme() });
+registerCommand({ id: "tools.format", title: "Format document", key: "Shift+Alt+F", inEditor: true,
+  run: () => requestFormat(), enabled: () => engineReady && !busy });
+registerCommand({ id: "tools.lint", title: "Lint file", run: () => requestLint(),
+  enabled: () => engineReady && !busy });
 registerCommand({ id: "share.link", title: "Share link", run: () => shareCurrent() });
 registerCommand({ id: "project.rename", title: "Rename workspace", run: () => renameActiveProject(),
   enabled: () => !!activeProject() });
@@ -237,7 +245,13 @@ addMenu({
     { id: "menu-go-to-line", label: "goToLine", command: "edit.goToLine" },
     { id: "menu-comment", label: "comment", command: "edit.comment" },
     { id: "clear-btn", label: "clear" },
-    { id: "format-btn", label: "format", enabled: () => false },
+  ],
+});
+addMenu({
+  id: "zana", label: "menuTools", order: 25,
+  items: [
+    { id: "menu-format", label: "format", command: "tools.format" },
+    { id: "menu-lint", label: "lintFile", command: "tools.lint" },
   ],
 });
 addMenu({
@@ -712,6 +726,18 @@ function onWorkerMessage(e) {
     appendOutput(m.text, m.err);
   } else if (m.type === "tukio") {
     handleEvent(m.json);
+  } else if (m.type === "formatted") {
+    if (m.seq === formatSeq) applyFormatted(m.text);
+  } else if (m.type === "linted") {
+    if (m.seq === lintSeq) {
+      try {
+        activeLint = JSON.parse(m.json).map((d) => ({ ...d, code: d.code, lint: true }));
+        renderProblems(activeProblems);
+        note(activeLint.length ? `${activeLint.length} ${T.problemsIn.toLowerCase()}` : T.lintClean, "ok");
+      } catch {
+        note(T.error, "error");
+      }
+    }
   } else if (m.type === "diag" && m.key) {
     try {
       // Only the entry file has a main function; a module's "no kuu" is not a problem.
@@ -727,7 +753,6 @@ function onWorkerMessage(e) {
     if (m.seq !== checkSeq) return;
     try {
       const items = JSON.parse(m.json);
-      editor.dispatch({ effects: setDiagnostics.of(items) });
       renderProblems(items);
     } catch {
       // A malformed result only means no marks; the run still reports errors in the output.
@@ -1528,9 +1553,14 @@ const projectProblems = new Map(); // document key -> diagnostics from the last 
 
 function renderProblems(items) {
   activeProblems = items;
-  if (activeDoc) activeDoc.error = items.length > 0;
+  const all = [...items, ...activeLint];
+  editor.dispatch({ effects: setDiagnostics.of(all) });
+  if (activeDoc) activeDoc.error = all.length > 0;
   renderAllProblems();
 }
+
+// The lint findings of the active file (from the last Lint), shown with its diagnostics.
+let activeLint = [];
 
 function renderAllProblems() {
   const list = document.getElementById("problems");
@@ -2153,6 +2183,33 @@ function toggleLineComments() {
     return { from: l.from + indent, to: l.from + indent, insert: "# " };
   }).filter(Boolean);
   editor.dispatch({ changes });
+}
+
+// ---- Format and lint (the pata toolchain's libraries, run in the engine) ---------------------
+let formatSeq = 0;
+let lintSeq = 0;
+
+function requestFormat() {
+  if (!engineReady || !worker || !activeDoc) return;
+  formatSeq += 1;
+  worker.postMessage({ type: "format", seq: formatSeq, source: editor.state.doc.toString() });
+}
+
+// Replace the text with its formatted form, as one edit: Undo brings the old text back.
+function applyFormatted(text) {
+  const current = editor.state.doc.toString();
+  if (text === current) {
+    note(T.formatUnchanged, "ok");
+    return;
+  }
+  editor.dispatch({ changes: { from: 0, to: current.length, insert: text } });
+  note(T.formatted, "ok");
+}
+
+function requestLint() {
+  if (!engineReady || !worker || !activeDoc) return;
+  lintSeq += 1;
+  worker.postMessage({ type: "lint", seq: lintSeq, source: editor.state.doc.toString() });
 }
 
 // ---- Paste from the clipboard ----------------------------------------------------------------

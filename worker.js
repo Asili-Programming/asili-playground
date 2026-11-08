@@ -77,6 +77,24 @@ self.addEventListener("message", async (e) => {
     }
     return;
   }
+  if (e.data.type === "format" || e.data.type === "lint") {
+    let glue;
+    try {
+      glue = await engine;
+    } catch {
+      return;
+    }
+    try {
+      if (e.data.type === "format") {
+        send({ type: "formatted", seq: e.data.seq, text: glue.format(e.data.source) });
+      } else {
+        send({ type: "linted", seq: e.data.seq, json: glue.lint(e.data.source) });
+      }
+    } catch {
+      // Ignored: the editor keeps its text.
+    }
+    return;
+  }
   if (e.data.type !== "run") return;
   let glue;
   try {
