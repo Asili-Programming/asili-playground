@@ -123,3 +123,8 @@ The versions are pinned in `vendor-src/package.json`. Commit the regenerated `ve
 The file and folder icons are the Material Icon Theme, and the interface icons are the Material product
 icon theme (both MIT, as VS Code uses them). The licences and the details are in `icons/material/` and
 `product-icons/`. `icons.js` looks up the icons, and `scripts/test_icons.mjs` checks the lookups.
+
+## License
+
+The original project code is licensed under GNU GPL v2.0 only; see [LICENSE](LICENSE). Third-party
+components and assets retain the licenses and notices shipped with them.
